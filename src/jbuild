@@ -1,0 +1,14 @@
+(jbuild_version 1)
+
+(menhir
+ ((modules (css_parser))
+  (flags (--explain))))
+
+(library
+ ((name ppx_bs_css)
+  (public_name ppx_bs_css)
+  (kind ppx_rewriter)
+  (libraries (sedlex menhirLib ocaml-migrate-parsetree))
+  (preprocess (pps (sedlex.ppx)))
+ ))
+

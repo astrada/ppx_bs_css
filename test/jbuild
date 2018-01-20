@@ -1,0 +1,11 @@
+(jbuild_version 1)
+
+(alias
+ ((name runtest)
+  (deps (test.exe))
+  (action (run ${<}))))
+
+(executable
+ ((name test)
+  (preprocess (pps (ppx_bs_css)))))
+
