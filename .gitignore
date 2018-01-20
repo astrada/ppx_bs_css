@@ -1,4 +1,13 @@
 *.swp
+npm-debug.log
+yarn-error.log
 .merlin
-_build/
+esy.lock
+esy-ocaml-project.install
+_build
+_esybuild
+_esyinstall
+_release
+*.byte
+*.native
 node_modules

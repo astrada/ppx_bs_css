@@ -1,0 +1,41 @@
+lib: [
+  "_build/install/default/lib/ppx_bs_css/META" {"META"}
+  "_build/install/default/lib/ppx_bs_css/opam" {"opam"}
+  "_build/install/default/lib/ppx_bs_css/ppx_bs_css__Css_lexer.cmi"
+  "_build/install/default/lib/ppx_bs_css/ppx_bs_css__Css_lexer.cmx"
+  "_build/install/default/lib/ppx_bs_css/ppx_bs_css__Css_lexer.cmt"
+  "_build/install/default/lib/ppx_bs_css/css_lexer.ml"
+  "_build/install/default/lib/ppx_bs_css/ppx_bs_css__Css_parser.cmi"
+  "_build/install/default/lib/ppx_bs_css/ppx_bs_css__Css_parser.cmx"
+  "_build/install/default/lib/ppx_bs_css/ppx_bs_css__Css_parser.cmt"
+  "_build/install/default/lib/ppx_bs_css/ppx_bs_css__Css_parser.cmti"
+  "_build/install/default/lib/ppx_bs_css/css_parser.mli"
+  "_build/install/default/lib/ppx_bs_css/ppx_bs_css__Css_types.cmi"
+  "_build/install/default/lib/ppx_bs_css/ppx_bs_css__Css_types.cmx"
+  "_build/install/default/lib/ppx_bs_css/ppx_bs_css__Css_types.cmt"
+  "_build/install/default/lib/ppx_bs_css/ppx_bs_css__Css_types.cmti"
+  "_build/install/default/lib/ppx_bs_css/css_types.mli"
+  "_build/install/default/lib/ppx_bs_css/ppx_bs_css__Lex_buffer.cmi"
+  "_build/install/default/lib/ppx_bs_css/ppx_bs_css__Lex_buffer.cmx"
+  "_build/install/default/lib/ppx_bs_css/ppx_bs_css__Lex_buffer.cmt"
+  "_build/install/default/lib/ppx_bs_css/lex_buffer.ml"
+  "_build/install/default/lib/ppx_bs_css/ppx_bs_css.cmi"
+  "_build/install/default/lib/ppx_bs_css/ppx_bs_css.cmx"
+  "_build/install/default/lib/ppx_bs_css/ppx_bs_css.cmt"
+  "_build/install/default/lib/ppx_bs_css/ppx_bs_css.ml-gen"
+  "_build/install/default/lib/ppx_bs_css/ppx_bs_css__Ppx_css.cmi"
+  "_build/install/default/lib/ppx_bs_css/ppx_bs_css__Ppx_css.cmx"
+  "_build/install/default/lib/ppx_bs_css/ppx_bs_css__Ppx_css.cmt"
+  "_build/install/default/lib/ppx_bs_css/ppx_css.ml"
+  "_build/install/default/lib/ppx_bs_css/ppx_bs_css.cma"
+  "_build/install/default/lib/ppx_bs_css/ppx_bs_css.cmxa"
+  "_build/install/default/lib/ppx_bs_css/ppx_bs_css.a"
+  "_build/install/default/lib/ppx_bs_css/ppx_bs_css.cmxs"
+]
+libexec: [
+  "_build/install/default/lib/ppx_bs_css/ppx.exe"
+]
+doc: [
+  "_build/install/default/doc/ppx_bs_css/README.md"
+  "_build/install/default/doc/ppx_bs_css/LICENSE"
+]
