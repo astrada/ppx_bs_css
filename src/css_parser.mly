@@ -5,15 +5,20 @@
 %token COLON
 %token EOF
 
-%start <Css_types.Block.t> block_eof
+%start <Css_types.Stylesheet.t> stylesheet
 
 %%
 
-block_eof:
-  b = block; EOF { b }
+stylesheet:
+  rs = list(rule); EOF { rs }
+  ;
+
+rule:
+  xs = list(STRING); b = block { { Css_types.Rule.prelude = xs; Css_types.Rule.block = b; } }
   ;
 
 block:
+  | LEFT_BRACE; RIGHT_BRACE { [] }
   | LEFT_BRACE; ds = declarations; RIGHT_BRACE { List.rev ds }
   ;
 
@@ -32,6 +37,6 @@ declaration:
   ;
 
 value:
-  v = STRING { Css_types.Value.of_any v }
+  v = STRING { v }
   ;
 
