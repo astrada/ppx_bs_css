@@ -2,5 +2,5 @@
 
 (executable
  ((name test)
+  (libraries (ppx_bs_css alcotest))
   (preprocess (pps (ppx_bs_css)))))
-

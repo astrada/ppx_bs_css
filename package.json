@@ -10,9 +10,10 @@
   },
   "dependencies": {
     "@esy-ocaml/esy-installer": "^0.0.0",
+    "@opam/alcotest": "^0.8.1",
     "@opam/jbuilder": "^1.0.0-beta16",
-    "@opam/ocaml-migrate-parsetree": "^1.0.7",
     "@opam/menhir": "20171222",
+    "@opam/ocaml-migrate-parsetree": "^1.0.7",
     "@opam/sedlex": "^1.0.0-beta14"
   },
   "peerDependencies": {
