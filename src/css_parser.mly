@@ -14,7 +14,11 @@ stylesheet:
   ;
 
 rule:
-  xs = list(STRING); b = block { { Css_types.Rule.prelude = xs; Css_types.Rule.block = b; } }
+  xs = prelude; b = block { { Css_types.Rule.prelude = xs; Css_types.Rule.block = b; } }
+  ;
+
+prelude:
+  xs = list(STRING) { xs }
   ;
 
 block:

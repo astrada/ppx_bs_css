@@ -18,7 +18,7 @@ let dump_block ppf (block: Ppx_bs_css.Css_types.Block.t) =
   pp ppf block
 
 let dump_rule ppf (rule: Ppx_bs_css.Css_types.Rule.t) =
-  let dump_prelude = Fmt.hbox (Fmt.list Fmt.string) in
+  let dump_prelude = Fmt.(hbox (list ~sep:(const string " ") string)) in
   Fmt.(pair ~sep:(const string " ") dump_prelude dump_block) ppf
     Ppx_bs_css.Css_types.Rule.(rule.prelude, rule.block)
 

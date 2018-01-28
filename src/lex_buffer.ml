@@ -84,6 +84,12 @@ let ascii ?(skip= 0) ?(drop= 0) lexbuf =
   let len = Sedlexing.lexeme_length lexbuf.buf - skip - drop in
   Sedlexing.Latin1.sub_lexeme lexbuf.buf skip len
 
+
 let utf8 ?(skip= 0) ?(drop= 0) lexbuf =
   let len = Sedlexing.lexeme_length lexbuf.buf - skip - drop in
   Sedlexing.Utf8.sub_lexeme lexbuf.buf skip len
+
+let position_to_string pos =
+  Printf.sprintf "line:%d offset:%d"
+    pos.Lexing.pos_lnum
+    (pos.Lexing.pos_cnum - pos.Lexing.pos_bol)
