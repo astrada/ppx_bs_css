@@ -14,8 +14,14 @@ p q r {
   let ast =
     try
       Ppx_bs_css.(Css_lexer.parse_string css Css_parser.stylesheet)
-    with Ppx_bs_css.Css_lexer.LexingError(pos, msg) ->
-      failwith ("Lexing error at: " ^ (Ppx_bs_css.Lex_buffer.position_to_string pos))
+    with
+    | Ppx_bs_css.Css_lexer.LexingError(pos, msg) ->
+      failwith ("Lexing error at: " ^ (Ppx_bs_css.Css_lexer.position_to_string pos))
+    | Ppx_bs_css.Css_lexer.ParseError(token, start, finish) ->
+      failwith (Printf.sprintf "Parsing error: Unexpected token=%s start=%s end=%s"
+                  (Ppx_bs_css.Css_lexer.token_to_string token)
+                  (Ppx_bs_css.Css_lexer.position_to_string start)
+                  (Ppx_bs_css.Css_lexer.position_to_string finish))
   in
   let expected_ast =
     let open Ppx_bs_css.Css_types in

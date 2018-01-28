@@ -1,9 +1,22 @@
-%token <string> STRING
-%token LEFT_BRACE
-%token RIGHT_BRACE
-%token SEMI_COLON
-%token COLON
 %token EOF
+%token SEMI_COLON
+%token RIGHT_BRACE
+%token LEFT_BRACE
+%token COLON
+%token RIGHT_PAREN
+%token PERCENTAGE
+%token <string> OPERATOR
+%token <string> STRING
+%token <string> URI
+%token IMPORTANT
+%token <string> AT_RULE
+%token <string> UNICODE_RANGE
+%token <string> FUNCTION
+%token <string> IDENT
+%token <string> HASH
+%token <string> NUMBER
+%token <string * string> DIMENSION
+%token <string> DELIM
 
 %start <Css_types.Stylesheet.t> stylesheet
 
@@ -18,7 +31,7 @@ rule:
   ;
 
 prelude:
-  xs = list(STRING) { xs }
+  xs = list(IDENT) { xs }
   ;
 
 block:
@@ -37,10 +50,10 @@ declarations:
   ;
 
 declaration:
-  p = STRING; COLON; v = value { { Css_types.Declaration.property = p; value = v } }
+  p = IDENT; COLON; v = value { { Css_types.Declaration.property = p; value = v } }
   ;
 
 value:
-  v = STRING { v }
+  v = IDENT { v }
   ;
 
