@@ -3,11 +3,12 @@ let test_stylesheet_parser () =
     {|
 {
   /* This is a comment */
-  color: red; /* This is another comment */
+  color: red !important; /* This is another comment */
   background-color: red;
 }
 
 p q r {
+  color: white
 }
 |}
   in
@@ -24,13 +25,33 @@ p q r {
                   (Ppx_bs_css.Css_lexer.position_to_string finish))
   in
   let expected_ast =
-    let open Ppx_bs_css.Css_types in
-    [ { Rule.prelude= []
-      ; block=
-          (let open Declaration in
-           [ {property= "color"; value= "red"}
-           ; {property= "background-color"; value= "red"} ]) }
-    ; {Rule.prelude= ["p"; "q"; "r"]; block= []} ]
+    Ppx_bs_css.Css_types.([
+      Rule.Style_rule {
+        Style_rule.prelude= [];
+        block= [
+          Declaration_list.Declaration {
+            Declaration.name= "color";
+            value=  [Component_value.Ident "red"];
+            important = true
+          };
+          Declaration_list.Declaration {
+            Declaration.name= "background-color";
+            value= [Component_value.Ident "red"];
+            important = false
+          }
+        ]
+      };
+      Rule.Style_rule {
+        Style_rule.prelude= [Component_value.Ident "p"; Ident "q"; Ident "r"];
+        block= [
+          Declaration_list.Declaration {
+            Declaration.name= "color";
+            value=  [Component_value.Ident "white"];
+            important = false
+          };
+        ]
+      }
+    ])
   in
   Alcotest.(check (of_pp Css_printer.dump_stylesheet))
     "different CSS AST" expected_ast ast

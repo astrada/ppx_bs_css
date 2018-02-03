@@ -12,9 +12,8 @@ let rec expr mapper e =
     -> (
         match e.pexp_desc with
         | Pexp_constant Pconst_string (str, delim) ->
-          let stylesheet = Css_lexer.parse_string str Css_parser.stylesheet in
-          let stylesheet_string = Css_printer.stylesheet_to_string stylesheet in
-          Exp.constant ~loc (Pconst_string (stylesheet_string, delim))
+          let _ = Css_lexer.parse_string str Css_parser.stylesheet in
+          Exp.constant ~loc (Pconst_string (str, delim))
         | _ ->
           raise
             (Location.Error

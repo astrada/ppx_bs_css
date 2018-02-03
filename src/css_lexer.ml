@@ -14,24 +14,27 @@ exception ParseError of (Css_parser.token * Lexing.position * Lexing.position)
 
 let token_to_string = function
   | Css_parser.EOF -> "EOF"
-  | SEMI_COLON -> ";"
-  | RIGHT_BRACE -> "}"
   | LEFT_BRACE -> "{"
-  | COLON -> ":"
+  | RIGHT_BRACE -> "}"
+  | LEFT_PAREN -> "("
   | RIGHT_PAREN -> ")"
+  | LEFT_BRACKET -> "["
+  | RIGHT_BRACKET -> "]"
+  | COLON -> ":"
+  | SEMI_COLON -> ";"
   | PERCENTAGE -> "%"
-  | OPERATOR s -> "OPERATOR(" ^ s ^ ")"
+  | IMPORTANT -> "!important"
+  | IDENT s -> "IDENT(" ^ s ^ ")"
   | STRING s -> "STRING(" ^ s ^ ")"
   | URI s -> "URI(" ^ s ^ ")"
-  | IMPORTANT -> "!important"
+  | OPERATOR s -> "OPERATOR(" ^ s ^ ")"
+  | DELIM s -> "DELIM(" ^ s ^ ")"
   | AT_RULE s -> "AT_RULE(" ^ s ^ ")"
-  | UNICODE_RANGE s -> "UNICODE_RANGE(" ^ s ^ ")"
   | FUNCTION s -> "FUNCTION(" ^ s ^ ")"
-  | IDENT s -> "IDENT(" ^ s ^ ")"
   | HASH s -> "HASH(" ^ s ^ ")"
   | NUMBER s -> "NUMBER(" ^ s ^ ")"
+  | UNICODE_RANGE s -> "UNICODE_RANGE(" ^ s ^ ")"
   | DIMENSION (n, d) -> "DIMENSION(" ^ n ^ ", " ^ d ^ ")"
-  | DELIM s -> "DELIM(" ^ s ^ ")"
 
 
 let position_to_string pos =
@@ -89,8 +92,8 @@ let string = [%sedlex.regexp? string_quote | string_apos]
 
 let name = [%sedlex.regexp? Plus ident_char]
 
-let number = [%sedlex.regexp? (Plus digit, Opt ('.', Plus digit), Opt (('e' | 'E'), ('+' | '-'), Plus digit))
-                          | ('.', Plus digit, Opt (('e' | 'E'), ('+' | '-'), Plus digit))]
+let number = [%sedlex.regexp? (Opt ('+', '-'), Plus digit, Opt ('.', Plus digit), Opt (('e' | 'E'), ('+' | '-'), Plus digit))
+                          | (Opt ('+', '-'), '.', Plus digit, Opt (('e' | 'E'), ('+' | '-'), Plus digit))]
 
 let non_printable = [%sedlex.regexp? '\x00'..'\x08' | '\x0B' | '\x0E'..'\x1F' | '\x7F']
 
@@ -187,17 +190,20 @@ let rec get_next_token buf =
   | '}' -> Css_parser.RIGHT_BRACE
   | '{' -> Css_parser.LEFT_BRACE
   | ':' -> Css_parser.COLON
+  | '(' -> Css_parser.LEFT_PAREN
   | ')' -> Css_parser.RIGHT_PAREN
+  | '[' -> Css_parser.LEFT_BRACKET
+  | ']' -> Css_parser.RIGHT_BRACKET
   | '%' -> Css_parser.PERCENTAGE
   | operator -> Css_parser.OPERATOR (Lex_buffer.latin1 buf)
   | string -> Css_parser.STRING (Lex_buffer.latin1 buf)
   | "url(", ws, url, ws, ")" -> Css_parser.URI (Lex_buffer.latin1 buf)
   | important -> Css_parser.IMPORTANT
-  | at_rule -> Css_parser.AT_RULE (Lex_buffer.latin1 buf)
+  | at_rule -> Css_parser.AT_RULE (Lex_buffer.latin1 ~skip:1 buf)
   (* NOTE: should be placed above ident, otherwise pattern with
    * '-[0-9a-z]{1,6}' cannot be matched *)
   | _u, '+', unicode_range -> Css_parser.UNICODE_RANGE (Lex_buffer.latin1 buf)
-  | ident, '(' -> Css_parser.FUNCTION (Lex_buffer.latin1 buf)
+  | ident, '(' -> Css_parser.FUNCTION (Lex_buffer.latin1 ~drop:1 buf)
   | ident -> Css_parser.IDENT (Lex_buffer.latin1 buf)
   | '#', name -> Css_parser.HASH (Lex_buffer.latin1 buf)
   | number -> get_dimension (Lex_buffer.latin1 buf) buf

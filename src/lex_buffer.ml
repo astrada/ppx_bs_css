@@ -87,4 +87,3 @@ let latin1 ?(skip= 0) ?(drop= 0) lexbuf =
 let utf8 ?(skip= 0) ?(drop= 0) lexbuf =
   let len = Sedlexing.lexeme_length lexbuf.buf - skip - drop in
   Sedlexing.Utf8.sub_lexeme lexbuf.buf skip len
-
