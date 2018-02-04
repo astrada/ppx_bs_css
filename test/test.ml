@@ -8,7 +8,6 @@ let test_stylesheet_parser () =
 }
 
 p q r {
-  color: white
 }
 |}
   in
@@ -39,11 +38,8 @@ p q r {
                 ; important= false } ] }
     ; Rule.Style_rule
         { Style_rule.prelude= [Component_value.Ident "p"; Ident "q"; Ident "r"]
-        ; block=
-            [ Declaration_list.Declaration
-                { Declaration.name= "color"
-                ; value= [Component_value.Ident "white"]
-                ; important= false } ] } ]
+        ; block= [] } ]
+
   in
   Alcotest.(check (of_pp Css_printer.dump_stylesheet))
     "different CSS AST" expected_ast ast

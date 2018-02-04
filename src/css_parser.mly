@@ -45,7 +45,8 @@ at_rule:
   ;
 
 style_rule:
-  xs = prelude; LEFT_BRACE; ds = declarations; RIGHT_BRACE { { Css_types.Style_rule.prelude = xs; block = ds; } }
+  | xs = prelude; LEFT_BRACE; RIGHT_BRACE { { Css_types.Style_rule.prelude = xs; block = []; } }
+  | xs = prelude; LEFT_BRACE; ds = declarations; RIGHT_BRACE { { Css_types.Style_rule.prelude = xs; block = ds; } }
   ;
 
 prelude:

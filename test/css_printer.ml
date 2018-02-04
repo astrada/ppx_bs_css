@@ -46,7 +46,7 @@ let rec dump_component_value ppf (cv: Ppx_bs_css.Css_types.Component_value.t) =
 
 and dump_at_rule ppf (ar: Ppx_bs_css.Css_types.At_rule.t) =
   let pp_name = Fmt.string |> Fmt.(prefix (const string "@")) in
-  let pp_prelude = Fmt.(list ~sep:(const string ", ") dump_component_value) in
+  let pp_prelude = Fmt.(list ~sep:(const string " ") dump_component_value) in
   let pp_block = Fmt.(option ~none:(const string ";") dump_component_value) in
   Fmt.fmt "%a %a %a" ppf pp_name ar.Ppx_bs_css.Css_types.At_rule.name
     pp_prelude ar.Ppx_bs_css.Css_types.At_rule.prelude pp_block
@@ -81,7 +81,7 @@ let dump_declaration_list ppf (dl: Ppx_bs_css.Css_types.Declaration_list.t) =
 
 
 let dump_style_rule ppf (sr: Ppx_bs_css.Css_types.Style_rule.t) =
-  let pp_prelude = Fmt.(list ~sep:(const string ", ") dump_component_value) in
+  let pp_prelude = Fmt.(list ~sep:(const string " ") dump_component_value) in
   Fmt.fmt "%a {@,%a@,}@," ppf pp_prelude
     sr.Ppx_bs_css.Css_types.Style_rule.prelude dump_declaration_list
     sr.Ppx_bs_css.Css_types.Style_rule.block
