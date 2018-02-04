@@ -68,7 +68,7 @@ let hex_digit = [%sedlex.regexp? '0'..'9' | 'a'..'f' | 'A'..'F']
 
 let digit = [%sedlex.regexp? '0'..'9']
 
-let non_ascii = [%sedlex.regexp? '\o240'..'\o377']
+let non_ascii = [%sedlex.regexp? '\160'..'\255']
 
 let up_to_6_hex_digits = [%sedlex.regexp? Rep (hex_digit, 1 .. 6)]
 

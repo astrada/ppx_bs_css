@@ -17,10 +17,10 @@
     "@opam/sedlex": "^1.0.0-beta14"
   },
   "peerDependencies": {
-    "ocaml": "~4.6"
+    "ocaml": "~4.2.3"
   },
   "devDependencies": {
     "@esy-ocaml/merlin": "^3.0.5",
-    "ocaml": "~4.6"
+    "ocaml": "~4.2.3"
   }
 }
