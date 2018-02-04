@@ -1,6 +1,6 @@
 (jbuild_version 1)
 
 (executable
- ((name test)
+ ((name test_suite)
   (libraries (ppx_bs_css fmt alcotest))
   (preprocess (pps (ppx_bs_css)))))
