@@ -17,11 +17,11 @@ let of_sedlex ?(file= "<n/a>") ?pos buf =
   let pos =
     match pos with
     | None ->
-        { Lexing.pos_fname= file
-        ; pos_lnum= 1
-        ; (* line number *)
+      { Lexing.pos_fname= file
+      ; pos_lnum= 1
+      ; (* line number *)
         pos_bol= 0
-        ; (* offset of beginning of current line *)
+      ; (* offset of beginning of current line *)
         pos_cnum= 0 (* total offset *) }
     | Some p -> p
   in
@@ -66,14 +66,14 @@ let next lexbuf =
   let pos = next_loc lexbuf in
   let ch = try Some (Char.chr c) with Invalid_argument _ -> None in
   ( match ch with
-  | Some '\r' ->
+    | Some '\r' ->
       lexbuf.pos
       <- {pos with pos_bol= pos.pos_cnum - 1; pos_lnum= pos.pos_lnum + 1}
-  | Some '\n' when not (lexbuf.last_char = Some cr) ->
+    | Some '\n' when not (lexbuf.last_char = Some cr) ->
       lexbuf.pos
       <- {pos with pos_bol= pos.pos_cnum - 1; pos_lnum= pos.pos_lnum + 1}
-  | Some '\n' -> ()
-  | _ -> lexbuf.pos <- pos ) ;
+    | Some '\n' -> ()
+    | _ -> lexbuf.pos <- pos ) ;
   lexbuf.last_char <- Some c ;
   c
 
@@ -88,3 +88,9 @@ let latin1 ?(skip= 0) ?(drop= 0) lexbuf =
 let utf8 ?(skip= 0) ?(drop= 0) lexbuf =
   let len = Sedlexing.lexeme_length lexbuf.buf - skip - drop in
   Sedlexing.Utf8.sub_lexeme lexbuf.buf skip len
+
+let make_loc ?(loc_ghost=false) start_pos end_pos : Location.t =
+  { Location.loc_start= start_pos;
+    loc_end = end_pos;
+    loc_ghost
+  }

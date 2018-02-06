@@ -12,6 +12,19 @@ exception ParseError of (Css_parser.token * Lexing.position * Lexing.position)
 (** Signals a parsing error at the provided token and its start and end
  * locations. *)
 
+let position_to_string pos =
+  Printf.sprintf "[%d,%d+%d]"
+    pos.Lexing.pos_lnum
+    pos.Lexing.pos_bol
+    (pos.Lexing.pos_cnum - pos.Lexing.pos_bol)
+
+
+let location_to_string loc =
+  Printf.sprintf "%s..%s"
+    (position_to_string loc.Location.loc_start)
+    (position_to_string loc.Location.loc_end)
+
+
 let token_to_string = function
   | Css_parser.EOF -> "EOF"
   | LEFT_BRACE -> "{"
@@ -35,12 +48,6 @@ let token_to_string = function
   | NUMBER s -> "NUMBER(" ^ s ^ ")"
   | UNICODE_RANGE s -> "UNICODE_RANGE(" ^ s ^ ")"
   | DIMENSION (n, d) -> "DIMENSION(" ^ n ^ ", " ^ d ^ ")"
-
-
-let position_to_string pos =
-  Printf.sprintf "line:%d offset:%d"
-    pos.Lexing.pos_lnum
-    (pos.Lexing.pos_cnum - pos.Lexing.pos_bol)
 
 
 let () =
