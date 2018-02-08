@@ -18,12 +18,30 @@ let position_to_string pos =
     pos.Lexing.pos_bol
     (pos.Lexing.pos_cnum - pos.Lexing.pos_bol)
 
-
 let location_to_string loc =
   Printf.sprintf "%s..%s"
     (position_to_string loc.Location.loc_start)
     (position_to_string loc.Location.loc_end)
 
+let container_lnum_ref = ref 0
+
+let fix_loc loc =
+  let fix_pos pos =
+    (* It looks like lex_buffer.ml returns a position with 2 extra
+     * chars for parsed lines after the first one. Bug? *)
+    let pos_cnum = if pos.Lexing.pos_lnum > !container_lnum_ref then
+        pos.Lexing.pos_cnum - 2
+      else
+        pos.Lexing.pos_cnum in
+    { pos with
+        Lexing.pos_cnum;
+    } in
+  let loc_start = fix_pos loc.Location.loc_start in
+  let loc_end = fix_pos loc.Location.loc_end in
+  { loc with
+      Location.loc_start;
+      loc_end;
+  }
 
 let token_to_string = function
   | Css_parser.EOF -> "EOF"
@@ -49,20 +67,32 @@ let token_to_string = function
   | UNICODE_RANGE s -> "UNICODE_RANGE(" ^ s ^ ")"
   | DIMENSION (n, d) -> "DIMENSION(" ^ n ^ ", " ^ d ^ ")"
 
-
 let () =
-  Location.register_error_of_exn (function
-      | LexingError (pos, msg) ->
-        let loc = {Location.loc_start= pos; loc_end= pos; loc_ghost= false} in
-        Some {loc; msg; sub= []; if_highlight= ""}
-      | ParseError (token, loc_start, loc_end) ->
-        let loc = {Location.loc_start; loc_end; loc_ghost= false} in
-        let msg =
-          Printf.sprintf "Parse error while reading token '%s'"
-            (token_to_string token)
-        in
-        Some {loc; msg; sub= []; if_highlight= ""}
-      | _ -> None )
+  Location.register_error_of_exn (
+    function
+    | LexingError (pos, msg) ->
+      let loc =
+        { Location.loc_start = pos;
+          loc_end = pos;
+          loc_ghost = false
+        } in
+      let loc = fix_loc loc in
+      Some { loc; msg; sub = []; if_highlight = "" }
+    | ParseError (token, loc_start, loc_end) ->
+      let loc =
+        { Location.loc_start;
+          loc_end;
+          loc_ghost = false
+        } in
+      print_endline (location_to_string loc);
+      let loc = fix_loc loc in
+      print_endline (location_to_string loc);
+      let msg =
+        Printf.sprintf "Parse error while reading token '%s'"
+          (token_to_string token)
+      in
+      Some { loc; msg; sub = []; if_highlight = "" }
+    | _ -> None )
 
 (* Regexes *)
 let newline = [%sedlex.regexp? '\n' | "\r\n" | '\r' | '\012']
@@ -144,32 +174,32 @@ let important = [%sedlex.regexp? "!", ws, _i, _m, _p, _o, _r, _t, _a, _n, _t]
 let dimension = [%sedlex.regexp?
     (* length *)
     (_c, _a, _p)
-                             | (_c, _h)
-                             | (_e, _m)
-                             | (_e, _x)
-                             | (_i, _c)
-                             | (_l, _h)
-                             | (_r, _e, _m)
-                             | (_r, _l, _h)
-                             | (_v, _h)
-                             | (_p, _x)
-                             | (_m, _m)
-                             | _q
-                             | (_c, _m)
-                             | (_i, _n)
-                             | (_p, _t)
-                             | (_p, _c)
-                             (* angle *)
-                             | (_d, _e, _g)
-                             | (_g, _r, _a, _d)
-                             | (_r, _a, _d)
-                             | (_t, _u, _r, _n)
-                             (* time *)
-                             | (_m, _s)
-                             | _s
-                             (* frequency *)
-                             | (_h, _z)
-                             | (_k, _h, _z)
+  | (_c, _h)
+  | (_e, _m)
+  | (_e, _x)
+  | (_i, _c)
+  | (_l, _h)
+  | (_r, _e, _m)
+  | (_r, _l, _h)
+  | (_v, _h)
+  | (_p, _x)
+  | (_m, _m)
+  | _q
+  | (_c, _m)
+  | (_i, _n)
+  | (_p, _t)
+  | (_p, _c)
+  (* angle *)
+  | (_d, _e, _g)
+  | (_g, _r, _a, _d)
+  | (_r, _a, _d)
+  | (_t, _u, _r, _n)
+  (* time *)
+  | (_m, _s)
+  | _s
+  (* frequency *)
+  | (_h, _z)
+  | (_k, _h, _z)
 ]
 
 let discard_comments_and_white_spaces buf =
@@ -225,14 +255,12 @@ and get_dimension n buf =
     Css_parser.NUMBER (n)
   | _ -> assert false
 
-
 let get_next_token_with_location buf =
   discard_comments_and_white_spaces buf ;
   let loc_start = Lex_buffer.next_loc buf in
   let token = get_next_token buf in
   let loc_end = Lex_buffer.next_loc buf in
   (token, loc_start, loc_end)
-
 
 let parse buf p =
   let last_token = ref (Css_parser.EOF, Lexing.dummy_pos, Lexing.dummy_pos) in
@@ -244,5 +272,10 @@ let parse buf p =
   | LexingError (pos, s) as e -> raise e
   | _ -> raise (ParseError !last_token)
 
+let parse_string ?container_lnum ?pos s p =
+  begin match container_lnum with
+  | None -> ()
+  | Some lnum -> container_lnum_ref := lnum
+  end;
+  parse (Lex_buffer.of_ascii_string ?pos s) p
 
-let parse_string ?pos s p = parse (Lex_buffer.of_ascii_string ?pos s) p

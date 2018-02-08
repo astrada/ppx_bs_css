@@ -11,8 +11,22 @@ let rec expr mapper e =
   | Pexp_extension ({ txt = "css"; loc}, PStr [{ pstr_desc = Pstr_eval (e, _) }])
     -> (match e.pexp_desc with
         | Pexp_constant Pconst_string (str, delim) ->
-          let ast = Css_lexer.parse_string str Css_parser.declaration_list in
-          Css_to_ocaml.render_declaration_list ast e.pexp_loc
+          let loc_start =
+            match delim with
+            | None -> e.pexp_loc.Location.loc_start
+            | Some s ->
+              { e.pexp_loc.Location.loc_start with
+                Lexing.pos_cnum =
+                  e.pexp_loc.Location.loc_start.Lexing.pos_cnum + (String.length s) + 1
+              }
+            in
+          let ast =
+            Css_lexer.parse_string
+              ~container_lnum:loc_start.Lexing.pos_lnum
+              ~pos:loc_start
+              str
+              Css_parser.declaration_list in
+          Css_to_ocaml.render_declaration_list ast
         | _ ->
           raise
             (Location.Error
