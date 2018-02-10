@@ -240,7 +240,7 @@ let rec get_next_token buf =
   | '%' -> Css_parser.PERCENTAGE
   | operator -> Css_parser.OPERATOR (Lex_buffer.latin1 buf)
   | string -> Css_parser.STRING (Lex_buffer.latin1 buf)
-  | "url(", ws, url, ws, ")" -> Css_parser.URI (Lex_buffer.latin1 buf)
+  | "url(" -> get_url "" buf
   | important -> Css_parser.IMPORTANT
   | at_rule -> Css_parser.AT_RULE (Lex_buffer.latin1 ~skip:1 buf)
   (* NOTE: should be placed above ident, otherwise pattern with
@@ -261,6 +261,18 @@ and get_dimension n buf =
     Css_parser.DIMENSION (n, Lex_buffer.latin1 buf)
   | _ ->
     Css_parser.NUMBER (n)
+and get_url url buf =
+  match%sedlex buf with
+  | ws -> get_url url buf
+  | url -> get_url (Lex_buffer.latin1 buf) buf
+  | ")" -> Css_parser.URI url
+  | eof ->
+    raise (LexingError (buf.Lex_buffer.pos, "Incomplete URI"))
+  | any ->
+    raise (LexingError
+      (buf.Lex_buffer.pos,
+       "Unexpected token: " ^ (Lex_buffer.latin1 buf) ^ " parsing an URI"))
+  | _ -> assert false
 
 let get_next_token_with_location buf =
   discard_comments_and_white_spaces buf ;

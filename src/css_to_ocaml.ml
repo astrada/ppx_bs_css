@@ -51,8 +51,12 @@ let rec render_component_value ((cv, cv_loc): Css_types.Component_value.t Css_ty
     Exp.apply ~loc ident [(Nolabel, arg)]
   | Ident i ->
     Exp.ident ~loc { txt = Lident i; loc }
-  | String s
-  | Uri s
+  | String s ->
+    Exp.constant ~loc (Const.string s)
+  | Uri s ->
+    let ident = Exp.ident ~loc { txt = Lident "url"; loc } in
+    let arg = Exp.constant ~loc (Const.string s) in
+    Exp.apply ~loc ident [(Nolabel, arg)]
   | Operator s
   | Delim s -> assert false
   | Hash s ->
