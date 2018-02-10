@@ -6,6 +6,33 @@ open Parsetree
 
 let rec render_component_value ((cv, cv_loc): Css_types.Component_value.t Css_types.with_loc) : expression =
   let loc = Css_lexer.fix_loc cv_loc in
+  let number_to_const number =
+    if String.contains number '.' then Const.float number
+    else Const.integer number
+  in
+  let render_dimension number dimension const =
+    let number_loc =
+      { loc with
+        Location.loc_end =
+          { loc.Location.loc_end with
+            Lexing.pos_cnum =
+              loc.Location.loc_end.Lexing.pos_cnum - (String.length dimension)
+          };
+      } in
+    let dimension_loc =
+      { loc with
+        Location.loc_start =
+          { loc.Location.loc_start with
+            Lexing.pos_cnum =
+              loc.Location.loc_start.Lexing.pos_cnum + (String.length number)
+          };
+      } in
+    let ident =
+      Exp.ident ~loc:dimension_loc { txt = Lident dimension; loc = dimension_loc } in
+    let arg =
+      Exp.constant ~loc:number_loc const in
+    Exp.apply ~loc ident (List.map (fun a -> (Nolabel, a)) [arg])
+  in  
   let render_block start_char end_char cs = assert false in
   match cv with
   | Css_types.Component_value.Brace_block cs -> render_block "{" "}" cs
@@ -18,12 +45,23 @@ let rec render_component_value ((cv, cv_loc): Css_types.Component_value.t Css_ty
   | Uri s
   | Operator s
   | Delim s
-  | Hash s
-  | Number s
+  | Hash s -> assert false
+  | Number s ->
+    if s = "0" then Exp.ident ~loc { txt = Lident "zero"; loc }
+    else Exp.constant ~loc (number_to_const s)
   | Unicode_range s -> assert false
   | At_rule ar -> render_at_rule ar
   | Function (name, params) -> assert false
-  | Dimension (number, dimension) -> assert false
+  | Float_dimension (number, dimension) ->
+    let const =
+      let number =
+        if String.contains number '.' then number
+        else number ^ "." in
+      Const.float number in
+    render_dimension number dimension const
+  | Dimension (number, dimension) ->
+    let const = number_to_const number in
+    render_dimension number dimension const
 and render_at_rule (ar: Css_types.At_rule.t) : expression = assert false
 
 let split c s =
@@ -73,8 +111,8 @@ let render_declaration_list ((dl, dl_loc): Css_types.Declaration_list.t) : expre
            render_at_rule ar, ar_loc
        in
        let loc =
-        Lex_buffer.make_loc
-          ~loc_ghost:true d_loc.Location.loc_start loc.Location.loc_end in
+         Lex_buffer.make_loc
+           ~loc_ghost:true d_loc.Location.loc_start loc.Location.loc_end in
        Exp.construct ~loc
          { txt = Lident "::"; loc }
          (Some (Exp.tuple ~loc [d_expr; e]));

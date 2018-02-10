@@ -16,6 +16,7 @@ module rec Component_value : sig
     | Hash of string
     | Number of string
     | Unicode_range of string
+    | Float_dimension of (string * string)
     | Dimension of (string * string)
 end =
   Component_value

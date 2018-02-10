@@ -65,6 +65,7 @@ let token_to_string = function
   | HASH s -> "HASH(" ^ s ^ ")"
   | NUMBER s -> "NUMBER(" ^ s ^ ")"
   | UNICODE_RANGE s -> "UNICODE_RANGE(" ^ s ^ ")"
+  | FLOAT_DIMENSION (n, d) -> "FLOAT_DIMENSION(" ^ n ^ ", " ^ d ^ ")"
   | DIMENSION (n, d) -> "DIMENSION(" ^ n ^ ", " ^ d ^ ")"
 
 let () =
@@ -171,7 +172,7 @@ let _z = [%sedlex.regexp? 'Z' | 'z']
 
 let important = [%sedlex.regexp? "!", ws, _i, _m, _p, _o, _r, _t, _a, _n, _t]
 
-let dimension = [%sedlex.regexp?
+let float_dimension = [%sedlex.regexp?
     (* length *)
     (_c, _a, _p)
   | (_c, _h)
@@ -182,24 +183,29 @@ let dimension = [%sedlex.regexp?
   | (_r, _e, _m)
   | (_r, _l, _h)
   | (_v, _h)
-  | (_p, _x)
   | (_m, _m)
   | _q
   | (_c, _m)
   | (_i, _n)
   | (_p, _t)
   | (_p, _c)
-  (* angle *)
+    (* angle *)
   | (_d, _e, _g)
   | (_g, _r, _a, _d)
   | (_r, _a, _d)
   | (_t, _u, _r, _n)
-  (* time *)
-  | (_m, _s)
+    (* time *)
   | _s
-  (* frequency *)
+    (* frequency *)
   | (_h, _z)
   | (_k, _h, _z)
+]
+
+let int_dimension = [%sedlex.regexp?
+    (* length *)
+    (_p, _x)
+    (* time *)
+  | (_m, _s)
 ]
 
 let discard_comments_and_white_spaces buf =
@@ -248,7 +254,9 @@ let rec get_next_token buf =
   | _ -> assert false
 and get_dimension n buf =
   match%sedlex buf with
-  | dimension
+  | float_dimension ->
+    Css_parser.FLOAT_DIMENSION (n, Lex_buffer.latin1 buf)
+  | int_dimension
   | ident ->
     Css_parser.DIMENSION (n, Lex_buffer.latin1 buf)
   | any ->

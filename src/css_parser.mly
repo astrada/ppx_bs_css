@@ -25,6 +25,7 @@ open Css_types
 %token <string> HASH
 %token <string> NUMBER
 %token <string> UNICODE_RANGE
+%token <string * string> FLOAT_DIMENSION
 %token <string * string> DIMENSION
 
 %start <Css_types.Stylesheet.t> stylesheet
@@ -151,5 +152,6 @@ component_value_without_brace_block:
   | h = HASH { Component_value.Hash h }
   | n = NUMBER { Component_value.Number n }
   | r = UNICODE_RANGE { Component_value.Unicode_range r }
+  | d = FLOAT_DIMENSION { Component_value.Float_dimension d }
   | d = DIMENSION { Component_value.Dimension d }
   ;
