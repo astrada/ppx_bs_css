@@ -12,7 +12,7 @@ module rec Component_value : sig
     | Operator of string
     | Delim of string
     | At_rule of At_rule.t
-    | Function of string * t with_loc list
+    | Function of string with_loc * t with_loc list
     | Hash of string
     | Number of string
     | Unicode_range of string

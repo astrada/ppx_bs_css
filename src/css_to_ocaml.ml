@@ -54,7 +54,14 @@ let rec render_component_value ((cv, cv_loc): Css_types.Component_value.t Css_ty
     else Exp.constant ~loc (number_to_const s)
   | Unicode_range s -> assert false
   | At_rule ar -> render_at_rule ar
-  | Function (name, params) -> assert false
+  | Function ((name, name_loc), params) ->
+    let ident = Exp.ident ~loc:name_loc { txt = Lident name; loc = name_loc } in
+    let args =
+      params
+      |> List.filter
+        (function (Css_types.Component_value.Delim ",", _) -> false | _ -> true)
+      |> List.map render_component_value in
+    Exp.apply ~loc ident (List.map (fun a -> (Nolabel, a)) args)
   | Float_dimension (number, dimension) ->
     let const =
       let number =

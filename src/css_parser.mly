@@ -148,7 +148,7 @@ component_value_without_brace_block:
   | u = URI { Component_value.Uri u }
   | o = OPERATOR { Component_value.Operator o }
   | d = DELIM { Component_value.Delim d }
-  | f = FUNCTION; xs = list(component_value_with_loc); RIGHT_PAREN { Component_value.Function (f, xs) }
+  | f = FUNCTION; xs = list(component_value_with_loc); RIGHT_PAREN { Component_value.Function ((f, Lex_buffer.make_loc $startpos(f) $endpos(f)), xs) }
   | h = HASH { Component_value.Hash h }
   | n = NUMBER { Component_value.Number n }
   | r = UNICODE_RANGE { Component_value.Unicode_range r }

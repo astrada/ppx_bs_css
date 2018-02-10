@@ -259,9 +259,8 @@ and get_dimension n buf =
   | int_dimension
   | ident ->
     Css_parser.DIMENSION (n, Lex_buffer.latin1 buf)
-  | any ->
+  | _ ->
     Css_parser.NUMBER (n)
-  | _ -> assert false
 
 let get_next_token_with_location buf =
   discard_comments_and_white_spaces buf ;
