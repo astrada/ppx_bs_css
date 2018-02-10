@@ -10,6 +10,12 @@ let rec render_component_value ((cv, cv_loc): Css_types.Component_value.t Css_ty
     if String.contains number '.' then Const.float number
     else Const.integer number
   in
+  let float_to_const number =
+    let number =
+      if String.contains number '.' then number
+      else number ^ "." in
+    Const.float number
+  in
   let render_dimension number dimension const =
     let number_loc =
       { loc with
@@ -38,7 +44,11 @@ let rec render_component_value ((cv, cv_loc): Css_types.Component_value.t Css_ty
   | Css_types.Component_value.Brace_block cs -> render_block "{" "}" cs
   | Paren_block cs -> render_block "(" ")" cs
   | Bracket_block cs -> render_block "[" "]" cs
-  | Percentage p -> assert false
+  | Percentage p ->
+    let ident = Exp.ident ~loc { txt = Lident "pct"; loc } in
+    let const = float_to_const p in
+    let arg = Exp.constant ~loc const in
+    Exp.apply ~loc ident [(Nolabel, arg)]
   | Ident i ->
     Exp.ident ~loc { txt = Lident i; loc }
   | String s
@@ -60,14 +70,14 @@ let rec render_component_value ((cv, cv_loc): Css_types.Component_value.t Css_ty
       params
       |> List.filter
         (function (Css_types.Component_value.Delim ",", _) -> false | _ -> true)
-      |> List.map render_component_value in
+      |> List.map
+        (function
+          | (Css_types.Component_value.Number "0", loc) ->
+            Exp.constant ~loc (Const.int 0)
+          | c -> render_component_value c) in
     Exp.apply ~loc ident (List.map (fun a -> (Nolabel, a)) args)
   | Float_dimension (number, dimension) ->
-    let const =
-      let number =
-        if String.contains number '.' then number
-        else number ^ "." in
-      Const.float number in
+    let const = float_to_const number in
     render_dimension number dimension const
   | Dimension (number, dimension) ->
     let const = number_to_const number in
