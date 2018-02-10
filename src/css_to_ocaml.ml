@@ -31,7 +31,7 @@ let rec render_component_value ((cv, cv_loc): Css_types.Component_value.t Css_ty
       Exp.ident ~loc:dimension_loc { txt = Lident dimension; loc = dimension_loc } in
     let arg =
       Exp.constant ~loc:number_loc const in
-    Exp.apply ~loc ident (List.map (fun a -> (Nolabel, a)) [arg])
+    Exp.apply ~loc ident [(Nolabel, arg)]
   in  
   let render_block start_char end_char cs = assert false in
   match cv with
@@ -44,8 +44,11 @@ let rec render_component_value ((cv, cv_loc): Css_types.Component_value.t Css_ty
   | String s
   | Uri s
   | Operator s
-  | Delim s
-  | Hash s -> assert false
+  | Delim s -> assert false
+  | Hash s ->
+    let ident = Exp.ident ~loc { txt = Lident "hex"; loc } in
+    let arg = Exp.constant ~loc (Const.integer ("0x" ^ s)) in
+    Exp.apply ~loc ident [(Nolabel, arg)]
   | Number s ->
     if s = "0" then Exp.ident ~loc { txt = Lident "zero"; loc }
     else Exp.constant ~loc (number_to_const s)

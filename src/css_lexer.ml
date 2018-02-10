@@ -248,7 +248,7 @@ let rec get_next_token buf =
   | _u, '+', unicode_range -> Css_parser.UNICODE_RANGE (Lex_buffer.latin1 buf)
   | ident, '(' -> Css_parser.FUNCTION (Lex_buffer.latin1 ~drop:1 buf)
   | ident -> Css_parser.IDENT (Lex_buffer.latin1 buf)
-  | '#', name -> Css_parser.HASH (Lex_buffer.latin1 buf)
+  | '#', name -> Css_parser.HASH (Lex_buffer.latin1 ~skip:1 buf)
   | number -> get_dimension (Lex_buffer.latin1 buf) buf
   | any -> Css_parser.DELIM (Lex_buffer.latin1 buf)
   | _ -> assert false
