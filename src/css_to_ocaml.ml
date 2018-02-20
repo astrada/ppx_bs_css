@@ -16,6 +16,9 @@ let rec render_component_value ((cv, cv_loc): Css_types.Component_value.t Css_ty
       else number ^ "." in
     Const.float number
   in
+  let string_to_const s =
+    Exp.constant ~loc (Const.string ~quotation_delimiter:"js" s)
+  in
   let render_dimension number dimension const =
     let number_loc =
       { loc with
@@ -52,10 +55,10 @@ let rec render_component_value ((cv, cv_loc): Css_types.Component_value.t Css_ty
   | Ident i ->
     Exp.ident ~loc { txt = Lident i; loc }
   | String s ->
-    Exp.constant ~loc (Const.string s)
+    string_to_const s
   | Uri s ->
     let ident = Exp.ident ~loc { txt = Lident "url"; loc } in
-    let arg = Exp.constant ~loc (Const.string s) in
+    let arg = string_to_const s in
     Exp.apply ~loc ident [(Nolabel, arg)]
   | Operator s
   | Delim s -> assert false
