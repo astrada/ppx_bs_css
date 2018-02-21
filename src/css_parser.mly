@@ -20,6 +20,8 @@ open Css_types
 %token <string> URI
 %token <string> OPERATOR
 %token <string> DELIM
+%token <string> NESTED_AT_RULE
+%token <string> AT_RULE_WITHOUT_BODY
 %token <string> AT_RULE
 %token <string> FUNCTION
 %token <string> HASH
@@ -34,7 +36,11 @@ open Css_types
 %%
 
 stylesheet:
-  rs = list(rule); EOF { (rs, Lex_buffer.make_loc $startpos $endpos) }
+  s = stylesheet_without_eof; EOF { s }
+  ;
+
+stylesheet_without_eof:
+  rs = list(rule) { (rs, Lex_buffer.make_loc $startpos $endpos) }
   ;
 
 declaration_list:
@@ -47,18 +53,24 @@ rule:
   ;
 
 at_rule:
-  | name = AT_RULE; xs = prelude_with_loc; SEMI_COLON {
+  | name = AT_RULE_WITHOUT_BODY; xs = prelude_with_loc; SEMI_COLON {
       { At_rule.name = (name, Lex_buffer.make_loc $startpos(name) $endpos(name));
         prelude = xs;
-        block = None;
+        block = Brace_block.Empty;
         loc = Lex_buffer.make_loc $startpos $endpos;
       }
     }
-  | name = AT_RULE; xs = prelude_with_loc; b = brace_block {
+  | name = NESTED_AT_RULE; xs = prelude_with_loc; LEFT_BRACE; s = stylesheet_without_eof; RIGHT_BRACE {
       { At_rule.name = (name, Lex_buffer.make_loc $startpos(name) $endpos(name));
         prelude = xs;
-        block = Some (Component_value.Brace_block b,
-          Lex_buffer.make_loc $startpos(b) $endpos(b));
+        block = Brace_block.Stylesheet s;
+        loc = Lex_buffer.make_loc $startpos $endpos;
+      }
+    }
+  | name = AT_RULE; xs = prelude_with_loc; LEFT_BRACE; ds = declarations_with_loc; RIGHT_BRACE {
+      { At_rule.name = (name, Lex_buffer.make_loc $startpos(name) $endpos(name));
+        prelude = xs;
+        block = Brace_block.Declaration_list ds;
         loc = Lex_buffer.make_loc $startpos $endpos;
       }
     }
@@ -84,7 +96,7 @@ prelude_with_loc:
   ;
 
 prelude:
-  xs = list(component_value_without_brace_block_with_loc) { xs }
+  xs = list(component_value_with_loc) { xs }
   ;
 
 declarations_with_loc:
@@ -116,10 +128,6 @@ declaration:
   }
   ;
 
-brace_block:
-  LEFT_BRACE; xs = list(component_value_with_loc); RIGHT_BRACE { xs }
-  ;
-
 paren_block:
   LEFT_PAREN; xs = list(component_value_with_loc); RIGHT_PAREN { xs }
   ;
@@ -132,14 +140,6 @@ component_value_with_loc:
   | c = component_value { (c, Lex_buffer.make_loc $startpos $endpos) }
 
 component_value:
-  | b = brace_block { Component_value.Brace_block b }
-  | c = component_value_without_brace_block { c }
-  ;
-
-component_value_without_brace_block_with_loc:
-  | c = component_value_without_brace_block { (c, Lex_buffer.make_loc $startpos $endpos) }
-
-component_value_without_brace_block:
   | b = paren_block { Component_value.Paren_block b }
   | b = bracket_block { Component_value.Bracket_block b }
   | n = NUMBER; PERCENTAGE { Component_value.Percentage n }
@@ -148,7 +148,10 @@ component_value_without_brace_block:
   | u = URI { Component_value.Uri u }
   | o = OPERATOR { Component_value.Operator o }
   | d = DELIM { Component_value.Delim d }
-  | f = FUNCTION; xs = list(component_value_with_loc); RIGHT_PAREN { Component_value.Function ((f, Lex_buffer.make_loc $startpos(f) $endpos(f)), xs) }
+  | COLON { Component_value.Delim ":" }
+  | f = FUNCTION; xs = list(component_value_with_loc); RIGHT_PAREN {
+      Component_value.Function ((f, Lex_buffer.make_loc $startpos(f) $endpos(f)), xs)
+    }
   | h = HASH { Component_value.Hash h }
   | n = NUMBER { Component_value.Number n }
   | r = UNICODE_RANGE { Component_value.Unicode_range r }

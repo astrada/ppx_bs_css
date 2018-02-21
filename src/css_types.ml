@@ -2,7 +2,6 @@ type 'a with_loc = 'a * Location.t
 
 module rec Component_value : sig
   type t =
-    | Brace_block of t with_loc list
     | Paren_block of t with_loc list
     | Bracket_block of t with_loc list
     | Percentage of string
@@ -11,7 +10,6 @@ module rec Component_value : sig
     | Uri of string
     | Operator of string
     | Delim of string
-    | At_rule of At_rule.t
     | Function of string with_loc * t with_loc list
     | Hash of string
     | Number of string
@@ -21,46 +19,59 @@ module rec Component_value : sig
 end =
   Component_value
 
+and Brace_block : sig
+  type t =
+    | Empty
+    | Declaration_list of Declaration_list.t
+    | Stylesheet of Stylesheet.t
+end =
+  Brace_block
+
 and At_rule : sig
   type t =
     { name: string with_loc;
       prelude: Component_value.t with_loc list with_loc;
-      block: Component_value.t with_loc option;
+      block: Brace_block.t;
       loc: Location.t;
     }
 end =
   At_rule
 
-module Declaration = struct
+and Declaration : sig
   type t =
     { name: string with_loc;
       value: Component_value.t with_loc list with_loc;
       important: bool with_loc;
       loc: Location.t;
     }
-end
+end =
+  Declaration
 
-module Declaration_list = struct
+and Declaration_list : sig
   type kind =
     | Declaration of Declaration.t
     | At_rule of At_rule.t
   type t = kind list with_loc
-end
+end =
+  Declaration_list
 
-module Style_rule = struct
+and Style_rule : sig
   type t =
     { prelude: Component_value.t with_loc list with_loc;
       block: Declaration_list.t;
       loc: Location.t;
     }
-end
+end =
+  Style_rule
 
-module Rule = struct
+and Rule : sig
   type t =
     | Style_rule of Style_rule.t
     | At_rule of At_rule.t
-end
+end =
+  Rule
 
-module Stylesheet = struct
+and Stylesheet : sig
   type t = Rule.t list with_loc
-end
+end =
+  Stylesheet

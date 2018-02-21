@@ -60,6 +60,8 @@ let token_to_string = function
   | URI s -> "URI(" ^ s ^ ")"
   | OPERATOR s -> "OPERATOR(" ^ s ^ ")"
   | DELIM s -> "DELIM(" ^ s ^ ")"
+  | NESTED_AT_RULE s -> "NESTED_AT_RULE(" ^ s ^ ")"
+  | AT_RULE_WITHOUT_BODY s -> "AT_RULE_WITHOUT_BODY(" ^ s ^ ")"
   | AT_RULE s -> "AT_RULE(" ^ s ^ ")"
   | FUNCTION s -> "FUNCTION(" ^ s ^ ")"
   | HASH s -> "HASH(" ^ s ^ ")"
@@ -142,6 +144,10 @@ let url = [%sedlex.regexp? url_unquoted | string]
 let operator = [%sedlex.regexp? "~=" | "|=" | "^=" | "$=" | "*=" | "||"]
 
 let at_rule = [%sedlex.regexp? "@", ident]
+
+let at_rule_without_body = [%sedlex.regexp? "@", ("charset" | "import" | "namespace")]
+
+let nested_at_rule = [%sedlex.regexp? "@", ("document" | "keyframes" | "media" | "supports" | "scope")]
 
 let _a = [%sedlex.regexp? 'A' | 'a']
 let _b = [%sedlex.regexp? 'B' | 'b']
@@ -226,46 +232,50 @@ let discard_comments_and_white_spaces buf =
   discard_white_spaces buf
 
 let rec get_next_token buf =
-  discard_comments_and_white_spaces buf ;
+  discard_comments_and_white_spaces buf;
+  let open Css_parser in
   match%sedlex buf with
-  | eof -> Css_parser.EOF
-  | ';' -> Css_parser.SEMI_COLON
-  | '}' -> Css_parser.RIGHT_BRACE
-  | '{' -> Css_parser.LEFT_BRACE
-  | ':' -> Css_parser.COLON
-  | '(' -> Css_parser.LEFT_PAREN
-  | ')' -> Css_parser.RIGHT_PAREN
-  | '[' -> Css_parser.LEFT_BRACKET
-  | ']' -> Css_parser.RIGHT_BRACKET
-  | '%' -> Css_parser.PERCENTAGE
-  | operator -> Css_parser.OPERATOR (Lex_buffer.latin1 buf)
-  | string -> Css_parser.STRING (Lex_buffer.latin1 buf)
+  | eof -> EOF
+  | ';' -> SEMI_COLON
+  | '}' -> RIGHT_BRACE
+  | '{' -> LEFT_BRACE
+  | ':' -> COLON
+  | '(' -> LEFT_PAREN
+  | ')' -> RIGHT_PAREN
+  | '[' -> LEFT_BRACKET
+  | ']' -> RIGHT_BRACKET
+  | '%' -> PERCENTAGE
+  | operator -> OPERATOR (Lex_buffer.latin1 buf)
+  | string -> STRING (Lex_buffer.latin1 ~skip:1 ~drop:1 buf)
   | "url(" -> get_url "" buf
-  | important -> Css_parser.IMPORTANT
-  | at_rule -> Css_parser.AT_RULE (Lex_buffer.latin1 ~skip:1 buf)
+  | important -> IMPORTANT
+  | nested_at_rule -> NESTED_AT_RULE (Lex_buffer.latin1 ~skip:1 buf)
+  | at_rule_without_body ->
+    AT_RULE_WITHOUT_BODY (Lex_buffer.latin1 ~skip:1 buf)
+  | at_rule -> AT_RULE (Lex_buffer.latin1 ~skip:1 buf)
   (* NOTE: should be placed above ident, otherwise pattern with
    * '-[0-9a-z]{1,6}' cannot be matched *)
-  | _u, '+', unicode_range -> Css_parser.UNICODE_RANGE (Lex_buffer.latin1 buf)
-  | ident, '(' -> Css_parser.FUNCTION (Lex_buffer.latin1 ~drop:1 buf)
-  | ident -> Css_parser.IDENT (Lex_buffer.latin1 buf)
-  | '#', name -> Css_parser.HASH (Lex_buffer.latin1 ~skip:1 buf)
+  | _u, '+', unicode_range -> UNICODE_RANGE (Lex_buffer.latin1 buf)
+  | ident, '(' -> FUNCTION (Lex_buffer.latin1 ~drop:1 buf)
+  | ident -> IDENT (Lex_buffer.latin1 buf)
+  | '#', name -> HASH (Lex_buffer.latin1 ~skip:1 buf)
   | number -> get_dimension (Lex_buffer.latin1 buf) buf
-  | any -> Css_parser.DELIM (Lex_buffer.latin1 buf)
+  | any -> DELIM (Lex_buffer.latin1 buf)
   | _ -> assert false
 and get_dimension n buf =
   match%sedlex buf with
   | float_dimension ->
-    Css_parser.FLOAT_DIMENSION (n, Lex_buffer.latin1 buf)
+    FLOAT_DIMENSION (n, Lex_buffer.latin1 buf)
   | int_dimension
   | ident ->
-    Css_parser.DIMENSION (n, Lex_buffer.latin1 buf)
+    DIMENSION (n, Lex_buffer.latin1 buf)
   | _ ->
-    Css_parser.NUMBER (n)
+    NUMBER (n)
 and get_url url buf =
   match%sedlex buf with
   | ws -> get_url url buf
   | url -> get_url (Lex_buffer.latin1 buf) buf
-  | ")" -> Css_parser.URI url
+  | ")" -> URI url
   | eof ->
     raise (LexingError (buf.Lex_buffer.pos, "Incomplete URI"))
   | any ->
