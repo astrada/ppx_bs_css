@@ -64,7 +64,7 @@ let rec render_component_value ((cv, cv_loc): Css_types.Component_value.t Css_ty
   | Delim s -> assert false
   | Hash s ->
     let ident = Exp.ident ~loc { txt = Lident "hex"; loc } in
-    let arg = Exp.constant ~loc (Const.integer ("0x" ^ s)) in
+    let arg = string_to_const s in
     Exp.apply ~loc ident [(Nolabel, arg)]
   | Number s ->
     if s = "0" then Exp.ident ~loc { txt = Lident "zero"; loc }
