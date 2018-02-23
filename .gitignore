@@ -2,8 +2,7 @@
 npm-debug.log
 yarn-error.log
 .merlin
-esy.lock
-esy-ocaml-project.install
+ppx_bs_css.install
 _build
 _esybuild
 _esyinstall
