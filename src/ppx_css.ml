@@ -26,8 +26,17 @@ let rec expr mapper e =
         let pos = loc_start in
         let mode =
           match delim with
-          | Some "typed" -> Css_to_ocaml.Bs_typed_css
-          | _ -> Css_to_ocaml.Bs_css in
+          | None
+          | Some ""
+          | Some "bs-css" -> Css_to_ocaml.Bs_css
+          | Some "typed"
+          | Some "bs-typed-css" -> Css_to_ocaml.Bs_typed_css
+          | _ ->
+            raise
+              (Location.Error
+                 (Location.error ~loc
+                    "Unexpected delimiter: accepted values are \"bs-css\" (or none) for bs-css, \
+                     and \"typed\" (or \"bs-typed-css\") for bs-typed-css")) in
         begin match txt with
           | "style" ->
             let ast =
@@ -48,10 +57,14 @@ let rec expr mapper e =
           | _ -> assert false
         end
       | _ ->
+        let message =
+          match txt with
+          | "css" -> "[%css] accepts a string, e.g. [%css \"{\n  color: red;\n}\"]"
+          | "style" -> "[%style] accepts a string, e.g. [%style \"color: red;\"]"
+          | _ -> assert false in
         raise
           (Location.Error
-             (Location.error ~loc
-                "[%css] accepts a string, e.g. [%css \"{\n  color: red;\n}\"]"))
+             (Location.error ~loc message))
     end
   | _ -> default_mapper.expr mapper e
 
