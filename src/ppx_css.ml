@@ -9,7 +9,7 @@ open Longident
 let rec expr mapper e =
   match e.pexp_desc with
   | Pexp_extension
-      ({ txt; loc},
+      ({ txt; loc },
        PStr [{ pstr_desc = Pstr_eval (e, _) }]) when txt = "style" || txt = "css" ->
     begin match e.pexp_desc with
       | Pexp_constant Pconst_string (str, delim) ->
@@ -24,6 +24,10 @@ let rec expr mapper e =
         in
         let container_lnum = loc_start.Lexing.pos_lnum in
         let pos = loc_start in
+        let mode =
+          match delim with
+          | Some "typed" -> Css_to_ocaml.Bs_typed_css
+          | _ -> Css_to_ocaml.Bs_css in
         begin match txt with
           | "style" ->
             let ast =
@@ -32,7 +36,7 @@ let rec expr mapper e =
                 ~pos
                 str
                 Css_parser.declaration_list in
-            Css_to_ocaml.render_declaration_list ast
+            Css_to_ocaml.render_declaration_list mode ast
           | "css" -> 
             let ast =
               Css_lexer.parse_string
@@ -40,7 +44,7 @@ let rec expr mapper e =
                 ~pos
                 str
                 Css_parser.stylesheet in
-            Css_to_ocaml.render_stylesheet ast
+            Css_to_ocaml.render_stylesheet mode ast
           | _ -> assert false
         end
       | _ ->
@@ -50,7 +54,6 @@ let rec expr mapper e =
                 "[%css] accepts a string, e.g. [%css \"{\n  color: red;\n}\"]"))
     end
   | _ -> default_mapper.expr mapper e
-
 
 let mapper _ _ = { default_mapper with expr }
 

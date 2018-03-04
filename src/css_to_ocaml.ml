@@ -5,11 +5,23 @@ open Asttypes
 open Parsetree
 open Css_types
 
-let is_overloaded declaration =
-  match declaration with
-  | "margin"
-  | "padding" -> true
-  | _ -> false
+type mode =
+  | Bs_css
+  | Bs_typed_css
+
+let is_overloaded mode declaration =
+  (* Overloaded declarations are rendered as function applications where function name
+     ends with a number that specifies the number of parameters.
+     E.g.: margin: 1em 2px -> margin2 em(1.) px(2.)
+  *)
+  match mode with
+  | Bs_css ->
+    begin match declaration with
+      | "margin"
+      | "padding" -> true
+      | _ -> false
+    end
+  | Bs_typed_css -> true
 
 let split c s =
   let rec loop s accu =
@@ -38,7 +50,7 @@ let float_to_const number =
     else number ^ "." in
   Const.float number
 
-let rec render_component_value ((cv, cv_loc): Component_value.t with_loc) : expression =
+let rec render_component_value mode ((cv, cv_loc): Component_value.t with_loc) : expression =
   let loc = Css_lexer.fix_loc cv_loc in
   let string_to_const s =
     Exp.constant ~loc (Const.string ~quotation_delimiter:"js" s)
@@ -103,7 +115,7 @@ let rec render_component_value ((cv, cv_loc): Component_value.t with_loc) : expr
         (function
           | (Component_value.Number "0", loc) ->
             Exp.constant ~loc (Const.int 0)
-          | c -> render_component_value c) in
+          | c -> render_component_value mode c) in
     Exp.apply ~loc ident (List.map (fun a -> (Nolabel, a)) args)
   | Float_dimension (number, dimension) ->
     let const = float_to_const number in
@@ -112,7 +124,7 @@ let rec render_component_value ((cv, cv_loc): Component_value.t with_loc) : expr
     let const = number_to_const number in
     render_dimension number dimension const
 
-and render_at_rule (ar: At_rule.t) : expression =
+and render_at_rule mode (ar: At_rule.t) : expression =
   match ar.At_rule.name with
   | ("keyframes" as n, loc) ->
     let ident = Exp.ident ~loc { txt = Lident n; loc } in
@@ -138,7 +150,7 @@ and render_at_rule (ar: At_rule.t) : expression =
                                 ("Unexpected @keyframes prelude", loc))
                    end in
                  let block_expr =
-                   render_declaration_list sr.Style_rule.block in
+                   render_declaration_list mode sr.Style_rule.block in
                  let tuple =
                    Exp.tuple ~loc:sr.Style_rule.loc [progress_expr; block_expr] in
                  let loc =
@@ -162,13 +174,13 @@ and render_at_rule (ar: At_rule.t) : expression =
     raise (Css_lexer.GrammarError
              ("At-rule @" ^ n ^ " not supported", ar.At_rule.loc))
 
-and render_declaration (d: Declaration.t) (d_loc: Location.t) : expression =
+and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression =
   let (name, name_loc) = d.Declaration.name in
   let name_loc = Css_lexer.fix_loc name_loc in
   let name = to_caml_case name in
   let (vs, _) = d.Declaration.value in
   let name =
-    if is_overloaded name then
+    if is_overloaded mode name then
       let parameter_count = List.length vs in
       if parameter_count > 1 then
         name ^ (string_of_int parameter_count)
@@ -176,10 +188,10 @@ and render_declaration (d: Declaration.t) (d_loc: Location.t) : expression =
     else name in
   let ident = Exp.ident ~loc:name_loc { txt = Lident name; loc = name_loc } in
   let args =
-    List.map (fun v -> render_component_value v) vs in
+    List.map (fun v -> render_component_value mode v) vs in
   Exp.apply ~loc:d_loc ident (List.map (fun a -> (Nolabel, a)) args)
 
-and render_declaration_list ((dl, dl_loc): Declaration_list.t) : expression =
+and render_declaration_list mode ((dl, dl_loc): Declaration_list.t) : expression =
   let loc = Css_lexer.fix_loc dl_loc in
   let end_loc =
     Lex_buffer.make_loc ~loc_ghost:true loc.Location.loc_end loc.Location.loc_end in
@@ -189,10 +201,10 @@ and render_declaration_list ((dl, dl_loc): Declaration_list.t) : expression =
          match d with
          | Declaration_list.Declaration decl ->
            let decl_loc = Css_lexer.fix_loc decl.loc in
-           render_declaration decl decl_loc, decl_loc
+           render_declaration mode decl decl_loc, decl_loc
          | Declaration_list.At_rule ar ->
            let ar_loc = Css_lexer.fix_loc ar.loc in
-           render_at_rule ar, ar_loc
+           render_at_rule mode ar, ar_loc
        in
        let loc =
          Lex_buffer.make_loc
@@ -206,7 +218,7 @@ and render_declaration_list ((dl, dl_loc): Declaration_list.t) : expression =
        None)
     (List.rev dl)
 
-and render_style_rule (sr: Style_rule.t) : expression =
+and render_style_rule mode (sr: Style_rule.t) : expression =
   let (prelude, prelude_loc) = sr.Style_rule.prelude in
   let selector =
     List.fold_left
@@ -223,16 +235,16 @@ and render_style_rule (sr: Style_rule.t) : expression =
       (List.rev prelude) in
   let selector_expr =
     Exp.constant ~loc:prelude_loc (Const.string ~quotation_delimiter:"js" selector) in
-  let dl_expr = render_declaration_list sr.Style_rule.block in
+  let dl_expr = render_declaration_list mode sr.Style_rule.block in
   let ident = Exp.ident ~loc:prelude_loc { txt = Lident "selector"; loc = prelude_loc } in
   Exp.apply ~loc:sr.Style_rule.loc ident [(Nolabel, selector_expr); (Nolabel, dl_expr)]
 
-and render_rule (r: Rule.t) : expression =
+and render_rule mode (r: Rule.t) : expression =
   match r with
-  | Rule.Style_rule sr -> render_style_rule sr
-  | Rule.At_rule ar -> render_at_rule ar
+  | Rule.Style_rule sr -> render_style_rule mode sr
+  | Rule.At_rule ar -> render_at_rule mode ar
 
-and render_stylesheet ((rs, loc): Stylesheet.t) : expression =
+and render_stylesheet mode ((rs, loc): Stylesheet.t) : expression =
   let loc = Css_lexer.fix_loc loc in
   let end_loc =
     Lex_buffer.make_loc ~loc_ghost:true loc.Location.loc_end loc.Location.loc_end in
@@ -240,8 +252,8 @@ and render_stylesheet ((rs, loc): Stylesheet.t) : expression =
     (fun e r ->
        let (r_expr, r_loc) =
          match r with
-         | Rule.Style_rule sr -> render_rule r, sr.Style_rule.loc
-         | Rule.At_rule ar -> render_rule r, ar.At_rule.loc in
+         | Rule.Style_rule sr -> render_rule mode r, sr.Style_rule.loc
+         | Rule.At_rule ar -> render_rule mode r, ar.At_rule.loc in
        let loc =
          Lex_buffer.make_loc
            ~loc_ghost:true r_loc.Location.loc_start loc.Location.loc_end in
