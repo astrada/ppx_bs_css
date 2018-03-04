@@ -12,6 +12,9 @@ exception ParseError of (Css_parser.token * Lexing.position * Lexing.position)
 (** Signals a parsing error at the provided token and its start and end
  * locations. *)
 
+exception GrammarError of (string * Location.t)
+(** Signals a grammar error at the provided location. *)
+
 let position_to_string pos =
   Printf.sprintf "[%d,%d+%d]"
     pos.Lexing.pos_lnum
@@ -87,13 +90,14 @@ let () =
           loc_end;
           loc_ghost = false
         } in
-      print_endline (location_to_string loc);
       let loc = fix_loc loc in
-      print_endline (location_to_string loc);
       let msg =
         Printf.sprintf "Parse error while reading token '%s'"
           (token_to_string token)
       in
+      Some { loc; msg; sub = []; if_highlight = "" }
+    | GrammarError (msg, loc) ->
+      let loc = fix_loc loc in
       Some { loc; msg; sub = []; if_highlight = "" }
     | _ -> None )
 
