@@ -9,6 +9,9 @@ type mode =
   | Bs_css
   | Bs_typed_css
 
+let grammar_error loc message =
+  raise (Css_lexer.GrammarError (message, loc))
+
 let is_overloaded mode declaration =
   (* Overloaded declarations are rendered as function applications where function name
      ends with a number that specifies the number of parameters.
@@ -78,7 +81,8 @@ let rec render_component_value mode ((cv, cv_loc): Component_value.t with_loc) :
       Exp.constant ~loc:number_loc const in
     Exp.apply ~loc ident [(Nolabel, arg)]
   in  
-  let render_block start_char end_char cs = assert false in
+  let render_block start_char end_char cs =
+    grammar_error loc ("Unsupported " ^ start_char ^ "-block") in
   match cv with
   | Component_value.Paren_block cs -> render_block "(" ")" cs
   | Bracket_block cs -> render_block "[" "]" cs
@@ -95,8 +99,10 @@ let rec render_component_value mode ((cv, cv_loc): Component_value.t with_loc) :
     let ident = Exp.ident ~loc { txt = Lident "url"; loc } in
     let arg = string_to_const ~loc s in
     Exp.apply ~loc ident [(Nolabel, arg)]
-  | Operator s
-  | Delim s -> assert false
+  | Operator s ->
+    grammar_error loc "Unsupported operator"
+  | Delim s ->
+    grammar_error loc "Unsupported delimiter"
   | Hash s ->
     let ident = Exp.ident ~loc { txt = Lident "hex"; loc } in
     let arg = string_to_const ~loc s in
@@ -104,7 +110,8 @@ let rec render_component_value mode ((cv, cv_loc): Component_value.t with_loc) :
   | Number s ->
     if s = "0" then Exp.ident ~loc { txt = Lident "zero"; loc }
     else Exp.constant ~loc (number_to_const s)
-  | Unicode_range s -> assert false
+  | Unicode_range s ->
+    grammar_error loc "Unsupported unicode range"
   | Function ((name, name_loc), params) ->
     let ident = Exp.ident ~loc:name_loc { txt = Lident name; loc = name_loc } in
     let args =
@@ -146,8 +153,7 @@ and render_at_rule mode (ar: At_rule.t) : expression =
                      | ([Component_value.Ident "to", loc], _) ->
                        Exp.constant ~loc (Const.int 100)
                      | (_, loc) ->
-                       raise (Css_lexer.GrammarError
-                                ("Unexpected @keyframes prelude", loc))
+                       grammar_error loc "Unexpected @keyframes prelude"
                    end in
                  let block_expr =
                    render_declaration_list mode sr.Style_rule.block in
@@ -160,8 +166,7 @@ and render_at_rule mode (ar: At_rule.t) : expression =
                    { txt = Lident "::"; loc }
                    (Some (Exp.tuple ~loc [tuple; e]));
                | Rule.At_rule ar ->
-                 raise (Css_lexer.GrammarError
-                          ("Unexpected at-rule in @keyframes body", ar.At_rule.loc))
+                 grammar_error ar.At_rule.loc "Unexpected at-rule in @keyframes body"
             )
             (Exp.construct ~loc:end_loc
                { txt = Lident "[]"; loc = end_loc }
@@ -171,8 +176,7 @@ and render_at_rule mode (ar: At_rule.t) : expression =
       | _ -> assert false
     end
   | (n, _) ->
-    raise (Css_lexer.GrammarError
-             ("At-rule @" ^ n ^ " not supported", ar.At_rule.loc))
+    grammar_error ar.At_rule.loc ("At-rule @" ^ n ^ " not supported")
 
 and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression =
   let (name, name_loc) = d.Declaration.name in
@@ -229,7 +233,7 @@ and render_style_rule mode (sr: Style_rule.t) : expression =
          | Operator v
          | Delim v -> if String.length s > 0 then v ^ " " ^ s else v ^ s
          | _ ->
-           raise (Css_lexer.GrammarError ("Unexpected selector", value_loc))
+           grammar_error value_loc "Unexpected selector"
       )
       ""
       (List.rev prelude) in
