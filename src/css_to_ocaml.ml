@@ -50,11 +50,11 @@ let float_to_const number =
     else number ^ "." in
   Const.float number
 
+let string_to_const ~loc s =
+  Exp.constant ~loc (Const.string ~quotation_delimiter:"js" s)
+
 let rec render_component_value mode ((cv, cv_loc): Component_value.t with_loc) : expression =
   let loc = Css_lexer.fix_loc cv_loc in
-  let string_to_const s =
-    Exp.constant ~loc (Const.string ~quotation_delimiter:"js" s)
-  in
   let render_dimension number dimension const =
     let number_loc =
       { loc with
@@ -90,16 +90,16 @@ let rec render_component_value mode ((cv, cv_loc): Component_value.t with_loc) :
   | Ident i ->
     Exp.ident ~loc { txt = Lident i; loc }
   | String s ->
-    string_to_const s
+    string_to_const ~loc s
   | Uri s ->
     let ident = Exp.ident ~loc { txt = Lident "url"; loc } in
-    let arg = string_to_const s in
+    let arg = string_to_const ~loc s in
     Exp.apply ~loc ident [(Nolabel, arg)]
   | Operator s
   | Delim s -> assert false
   | Hash s ->
     let ident = Exp.ident ~loc { txt = Lident "hex"; loc } in
-    let arg = string_to_const s in
+    let arg = string_to_const ~loc s in
     Exp.apply ~loc ident [(Nolabel, arg)]
   | Number s ->
     if s = "0" then Exp.ident ~loc { txt = Lident "zero"; loc }
@@ -233,8 +233,7 @@ and render_style_rule mode (sr: Style_rule.t) : expression =
       )
       ""
       (List.rev prelude) in
-  let selector_expr =
-    Exp.constant ~loc:prelude_loc (Const.string ~quotation_delimiter:"js" selector) in
+  let selector_expr = string_to_const ~loc:prelude_loc selector in
   let dl_expr = render_declaration_list mode sr.Style_rule.block in
   let ident = Exp.ident ~loc:prelude_loc { txt = Lident "selector"; loc = prelude_loc } in
   Exp.apply ~loc:sr.Style_rule.loc ident [(Nolabel, selector_expr); (Nolabel, dl_expr)]
