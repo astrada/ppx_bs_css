@@ -83,9 +83,8 @@ and dump_declaration ppf (d: Declaration.t) =
 and dump_declaration_list ppf (dl, dl_loc) : unit =
   let pp_elem ppf d =
     match d with
+    | Declaration_list.Declaration d -> dump_declaration ppf d
     | Declaration_list.At_rule ar -> dump_at_rule ppf ar
-    | Declaration_list.Declaration d ->
-      dump_declaration ppf d
   in
   let pp =
     Fmt.(vbox ~indent:2

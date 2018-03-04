@@ -645,6 +645,35 @@ let test_at_rule_font_feature_values () =
   Alcotest.(check (testable Css_fmt_printer.dump_stylesheet eq_ast))
     "different CSS AST" expected_ast ast
 
+let test_selector () =
+  let css =
+    {|
+:hover {
+  color: blue
+}
+|}
+  in
+  let ast = parse_stylesheet css in
+  let expected_ast =
+    ([Rule.Style_rule
+        {Style_rule.prelude = (
+            [(Component_value.Delim ":", Location.none);
+             (Component_value.Ident "hover", Location.none);
+            ], Location.none);
+         block = (
+           [Declaration_list.Declaration
+              {Declaration.name = ("color", Location.none);
+               value = ([(Component_value.Ident "blue", Location.none)], Location.none);
+               important = (false, Location.none);
+               loc = Location.none;
+              };
+           ], Location.none);
+         loc = Location.none;
+        };
+     ], Location.none)
+  in
+  Alcotest.(check (testable Css_fmt_printer.dump_stylesheet eq_ast))
+    "different CSS AST" expected_ast ast
 
 let test_set =
   [("CSS parser", `Quick, test_stylesheet_parser);
@@ -661,4 +690,5 @@ let test_set =
    ("@viewport", `Quick, test_at_rule_viewport);
    ("@counter-style", `Quick, test_at_rule_counter_style);
    ("@font-feature-values", `Quick, test_at_rule_font_feature_values);
+   ("selector", `Quick, test_selector);
   ]

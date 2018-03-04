@@ -5,6 +5,12 @@ open Asttypes
 open Parsetree
 open Css_types
 
+let is_overloaded declaration =
+  match declaration with
+  | "margin"
+  | "padding" -> true
+  | _ -> false
+
 let split c s =
   let rec loop s accu =
     try
@@ -105,6 +111,7 @@ let rec render_component_value ((cv, cv_loc): Component_value.t with_loc) : expr
   | Dimension (number, dimension) ->
     let const = number_to_const number in
     render_dimension number dimension const
+
 and render_at_rule (ar: At_rule.t) : expression =
   match ar.At_rule.name with
   | ("keyframes" as n, loc) ->
@@ -126,7 +133,9 @@ and render_at_rule (ar: At_rule.t) : expression =
                        Exp.constant ~loc (Const.int 0)
                      | ([Component_value.Ident "to", loc], _) ->
                        Exp.constant ~loc (Const.int 100)
-                     | _ -> failwith "Unexpected @keyframes prelude"
+                     | (_, loc) ->
+                       raise (Css_lexer.GrammarError
+                                ("Unexpected @keyframes prelude", loc))
                    end in
                  let block_expr =
                    render_declaration_list sr.Style_rule.block in
@@ -138,26 +147,32 @@ and render_at_rule (ar: At_rule.t) : expression =
                  Exp.construct ~loc
                    { txt = Lident "::"; loc }
                    (Some (Exp.tuple ~loc [tuple; e]));
-               | _ -> failwith "Unexpected at-rule in @keyframes body"
+               | Rule.At_rule ar ->
+                 raise (Css_lexer.GrammarError
+                          ("Unexpected at-rule in @keyframes body", ar.At_rule.loc))
             )
             (Exp.construct ~loc:end_loc
                { txt = Lident "[]"; loc = end_loc }
                None)
             (List.rev rs) in
         Exp.apply ~loc:ar.At_rule.loc ident [(Nolabel, arg)]
-      | _ -> failwith "Unexpected @keyframes body"
+      | _ -> assert false
     end
-  | (n, _) -> failwith ("At-rule @" ^ n ^ " not supported")
+  | (n, _) ->
+    raise (Css_lexer.GrammarError
+             ("At-rule @" ^ n ^ " not supported", ar.At_rule.loc))
 
 and render_declaration (d: Declaration.t) (d_loc: Location.t) : expression =
   let (name, name_loc) = d.Declaration.name in
   let name_loc = Css_lexer.fix_loc name_loc in
   let name = to_caml_case name in
   let (vs, _) = d.Declaration.value in
-  let parameter_count = List.length vs in
   let name =
-    if parameter_count > 1 then
-      name ^ (string_of_int parameter_count)
+    if is_overloaded name then
+      let parameter_count = List.length vs in
+      if parameter_count > 1 then
+        name ^ (string_of_int parameter_count)
+      else name
     else name in
   let ident = Exp.ident ~loc:name_loc { txt = Lident name; loc = name_loc } in
   let args =
@@ -166,7 +181,8 @@ and render_declaration (d: Declaration.t) (d_loc: Location.t) : expression =
 
 and render_declaration_list ((dl, dl_loc): Declaration_list.t) : expression =
   let loc = Css_lexer.fix_loc dl_loc in
-  let end_loc = Lex_buffer.make_loc ~loc_ghost:true loc.Location.loc_end loc.Location.loc_end in
+  let end_loc =
+    Lex_buffer.make_loc ~loc_ghost:true loc.Location.loc_end loc.Location.loc_end in
   List.fold_left
     (fun e d ->
        let (d_expr, d_loc) =
@@ -190,8 +206,50 @@ and render_declaration_list ((dl, dl_loc): Declaration_list.t) : expression =
        None)
     (List.rev dl)
 
-and render_style_rule (sr: Style_rule.t) : expression = assert false
+and render_style_rule (sr: Style_rule.t) : expression =
+  let (prelude, prelude_loc) = sr.Style_rule.prelude in
+  let selector =
+    List.fold_left
+      (fun s (value, value_loc) ->
+         match value with
+         | Component_value.Delim ":" -> ":" ^ s
+         | Ident v
+         | Operator v
+         | Delim v -> if String.length s > 0 then v ^ " " ^ s else v ^ s
+         | _ ->
+           raise (Css_lexer.GrammarError ("Unexpected selector", value_loc))
+      )
+      ""
+      (List.rev prelude) in
+  let selector_expr =
+    Exp.constant ~loc:prelude_loc (Const.string ~quotation_delimiter:"js" selector) in
+  let dl_expr = render_declaration_list sr.Style_rule.block in
+  let ident = Exp.ident ~loc:prelude_loc { txt = Lident "selector"; loc = prelude_loc } in
+  Exp.apply ~loc:sr.Style_rule.loc ident [(Nolabel, selector_expr); (Nolabel, dl_expr)]
 
-and render_rule (r: Rule.t) : expression = assert false
+and render_rule (r: Rule.t) : expression =
+  match r with
+  | Rule.Style_rule sr -> render_style_rule sr
+  | Rule.At_rule ar -> render_at_rule ar
 
-and render_stylesheet (s: Stylesheet.t) : expression = assert false
+and render_stylesheet ((rs, loc): Stylesheet.t) : expression =
+  let loc = Css_lexer.fix_loc loc in
+  let end_loc =
+    Lex_buffer.make_loc ~loc_ghost:true loc.Location.loc_end loc.Location.loc_end in
+  List.fold_left
+    (fun e r ->
+       let (r_expr, r_loc) =
+         match r with
+         | Rule.Style_rule sr -> render_rule r, sr.Style_rule.loc
+         | Rule.At_rule ar -> render_rule r, ar.At_rule.loc in
+       let loc =
+         Lex_buffer.make_loc
+           ~loc_ghost:true r_loc.Location.loc_start loc.Location.loc_end in
+       Exp.construct ~loc
+         { txt = Lident "::"; loc }
+         (Some (Exp.tuple ~loc [r_expr; e]));
+    )
+    (Exp.construct ~loc:end_loc
+       { txt = Lident "[]"; loc = end_loc }
+       None)
+    (List.rev rs)
