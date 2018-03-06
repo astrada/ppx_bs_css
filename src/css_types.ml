@@ -10,7 +10,7 @@ module rec Component_value : sig
     | Uri of string
     | Operator of string
     | Delim of string
-    | Function of string with_loc * t with_loc list
+    | Function of string with_loc * t with_loc list with_loc
     | Hash of string
     | Number of string
     | Unicode_range of string

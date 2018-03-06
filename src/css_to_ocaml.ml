@@ -85,31 +85,35 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
     Exp.apply ~loc ident [(Nolabel, arg)]
   in
 
-  let render_function (name, name_loc) params =
+  let render_function (name, name_loc) (params, params_loc) =
     let caml_case_name = to_caml_case name in
     let ident =
       Exp.ident ~loc:name_loc { txt = Lident caml_case_name; loc = name_loc } in
-    let grouped_params : Component_value.t with_loc list list =
-      let rec group_param accu xs =
+    let grouped_params =
+      let rec group_param (accu, loc) xs =
         match xs with
-        | [] -> accu, []
-        | (Component_value.Delim ",", _) :: rest -> accu, rest
-        | hd :: rest -> group_param (accu @ [hd]) rest
+        | [] -> (accu, loc), []
+        | (Component_value.Delim ",", _) :: rest -> (accu, loc), rest
+        | (cv, cv_loc) as hd :: rest ->
+          let loc =
+            let loc_start =
+              if loc = Location.none then cv_loc.Location.loc_start
+              else loc.Location.loc_start in
+            Lex_buffer.make_loc loc_start cv_loc.Location.loc_end in
+          group_param (accu @ [hd], loc) rest
       in
       let rec group_params accu xs =
         match xs with
         | [] -> accu
         | _ ->
-          let param, rest = group_param [] xs in
+          let param, rest = group_param ([], Location.none) xs in
           group_params (accu @ [param]) rest
       in
       group_params [] params
     in
     let args =
       let open Component_value in
-      let side_or_corner_expr deg start_loc end_loc =
-        let loc =
-          Lex_buffer.make_loc start_loc.Location.loc_start end_loc.Location.loc_end in
+      let side_or_corner_expr deg loc =
         render_component_value mode
           (Float_dimension (deg, "deg"), loc)
       in
@@ -118,43 +122,44 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
       | "repeating-linear-gradient" ->
         let (side_or_corner, color_stop_params) =
           match List.hd grouped_params with
-          | [(Float_dimension (_, "deg"), _) as cv] ->
+          | ([(Float_dimension (_, "deg"), _) as cv], _) ->
             render_component_value mode cv, List.tl grouped_params
-          | [(Ident "to", start_loc);
-             (Ident "bottom", end_loc)] ->
-            side_or_corner_expr "180" start_loc end_loc, List.tl grouped_params
-          | [(Ident "to", start_loc);
-             (Ident "top", end_loc)] ->
-            side_or_corner_expr "0" start_loc end_loc, List.tl grouped_params
-          | [(Ident "to", start_loc);
-             (Ident "right", end_loc)] ->
-            side_or_corner_expr "90" start_loc end_loc, List.tl grouped_params
-          | [(Ident "to", start_loc);
-             (Ident "left", end_loc)] ->
-            side_or_corner_expr "270" start_loc end_loc, List.tl grouped_params
-          | _ ->
-            grammar_error loc "Unexpected first parameter"
-          | exception (Failure _) ->
+          | ([(Ident "to", _);
+              (Ident "bottom", _)], loc) ->
+            side_or_corner_expr "180" loc, List.tl grouped_params
+          | ([(Ident "to", _);
+              (Ident "top", _)], loc) ->
+            side_or_corner_expr "0" loc, List.tl grouped_params
+          | ([(Ident "to", _);
+              (Ident "right", _)], loc) ->
+            side_or_corner_expr "90" loc, List.tl grouped_params
+          | ([(Ident "to", _);
+              (Ident "left", _)], loc) ->
+            side_or_corner_expr "270" loc, List.tl grouped_params
+          | ((Ident _, _) :: _, _) ->
             let implicit_side_or_corner_loc =
               Lex_buffer.make_loc ~loc_ghost:true
-                name_loc.Location.loc_end
-                name_loc.Location.loc_end in
+                params_loc.Location.loc_start
+                params_loc.Location.loc_start in
             render_component_value mode
               (Float_dimension ("180", "deg"), implicit_side_or_corner_loc), grouped_params
+          | (_, loc) ->
+            grammar_error loc "Unexpected first parameter"
+          | exception (Failure _) ->
+            grammar_error params_loc "Missing parameters"
         in
         let color_stops =
           List.rev_map
             (function
-              | [(color, start_loc) as color_cv;
-                 (Percentage perc, end_loc)] ->
+              | ([(color, start_loc) as color_cv;
+                  (Percentage perc, end_loc)], _) ->
                 let color_expr = render_component_value mode color_cv in
                 let perc_expr = Exp.constant ~loc:end_loc (number_to_const perc) in
                 let loc =
                   Lex_buffer.make_loc start_loc.Location.loc_start end_loc.Location.loc_end in
                 Exp.tuple ~loc [perc_expr; color_expr]
-              | _ ->
-                (*grammar_error loc ""*)
-                assert false
+              | (_, loc) ->
+                grammar_error loc "Unexpected color stop"
             )
             color_stop_params
         in

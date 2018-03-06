@@ -40,7 +40,7 @@ stylesheet:
   ;
 
 stylesheet_without_eof:
-  rs = list(rule) { (rs, Lex_buffer.make_loc $startpos $endpos) }
+  rs = list(rule) { (rs, Lex_buffer.make_loc_and_fix $startpos $endpos) }
   ;
 
 declaration_list:
@@ -54,24 +54,24 @@ rule:
 
 at_rule:
   | name = AT_RULE_WITHOUT_BODY; xs = prelude_with_loc; SEMI_COLON {
-      { At_rule.name = (name, Lex_buffer.make_loc $startpos(name) $endpos(name));
+      { At_rule.name = (name, Lex_buffer.make_loc_and_fix $startpos(name) $endpos(name));
         prelude = xs;
         block = Brace_block.Empty;
-        loc = Lex_buffer.make_loc $startpos $endpos;
+        loc = Lex_buffer.make_loc_and_fix $startpos $endpos;
       }
     }
   | name = NESTED_AT_RULE; xs = prelude_with_loc; LEFT_BRACE; s = stylesheet_without_eof; RIGHT_BRACE {
-      { At_rule.name = (name, Lex_buffer.make_loc $startpos(name) $endpos(name));
+      { At_rule.name = (name, Lex_buffer.make_loc_and_fix $startpos(name) $endpos(name));
         prelude = xs;
         block = Brace_block.Stylesheet s;
-        loc = Lex_buffer.make_loc $startpos $endpos;
+        loc = Lex_buffer.make_loc_and_fix $startpos $endpos;
       }
     }
   | name = AT_RULE; xs = prelude_with_loc; LEFT_BRACE; ds = declarations_with_loc; RIGHT_BRACE {
-      { At_rule.name = (name, Lex_buffer.make_loc $startpos(name) $endpos(name));
+      { At_rule.name = (name, Lex_buffer.make_loc_and_fix $startpos(name) $endpos(name));
         prelude = xs;
         block = Brace_block.Declaration_list ds;
-        loc = Lex_buffer.make_loc $startpos $endpos;
+        loc = Lex_buffer.make_loc_and_fix $startpos $endpos;
       }
     }
   ;
@@ -80,19 +80,19 @@ style_rule:
   | xs = prelude_with_loc; LEFT_BRACE; RIGHT_BRACE {
       { Style_rule.prelude = xs;
         block = [], Location.none;
-        loc = Lex_buffer.make_loc $startpos $endpos;
+        loc = Lex_buffer.make_loc_and_fix $startpos $endpos;
       }
     }
   | xs = prelude_with_loc; LEFT_BRACE; ds = declarations_with_loc; RIGHT_BRACE {
       { Style_rule.prelude = xs;
         block = ds;
-        loc = Lex_buffer.make_loc $startpos $endpos;
+        loc = Lex_buffer.make_loc_and_fix $startpos $endpos;
       }
     }
   ;
 
 prelude_with_loc:
-  xs = prelude { (xs, Lex_buffer.make_loc $startpos $endpos) }
+  xs = prelude { (xs, Lex_buffer.make_loc_and_fix $startpos $endpos) }
   ;
 
 prelude:
@@ -100,7 +100,7 @@ prelude:
   ;
 
 declarations_with_loc:
-  | ds = declarations { (ds, Lex_buffer.make_loc ~loc_ghost:true $startpos $endpos) }
+  | ds = declarations { (ds, Lex_buffer.make_loc_and_fix ~loc_ghost:true $startpos $endpos) }
   ;
 
 declarations:
@@ -120,10 +120,10 @@ declaration_or_at_rule:
 
 declaration:
   n = IDENT; COLON; v = list(component_value_with_loc); i = boption(IMPORTANT) {
-    { Declaration.name = (n, Lex_buffer.make_loc $startpos(n) $endpos(n));
-      value = (v, Lex_buffer.make_loc $startpos(v) $endpos(v));
-      important = (i, Lex_buffer.make_loc $startpos(i) $endpos(i));
-      loc = Lex_buffer.make_loc $startpos $endpos;
+    { Declaration.name = (n, Lex_buffer.make_loc_and_fix $startpos(n) $endpos(n));
+      value = (v, Lex_buffer.make_loc_and_fix $startpos(v) $endpos(v));
+      important = (i, Lex_buffer.make_loc_and_fix $startpos(i) $endpos(i));
+      loc = Lex_buffer.make_loc_and_fix $startpos $endpos;
     }
   }
   ;
@@ -137,7 +137,7 @@ bracket_block:
   ;
 
 component_value_with_loc:
-  | c = component_value { (c, Lex_buffer.make_loc $startpos $endpos) }
+  | c = component_value { (c, Lex_buffer.make_loc_and_fix $startpos $endpos) }
 
 component_value:
   | b = paren_block { Component_value.Paren_block b }
@@ -150,7 +150,8 @@ component_value:
   | d = DELIM { Component_value.Delim d }
   | COLON { Component_value.Delim ":" }
   | f = FUNCTION; xs = list(component_value_with_loc); RIGHT_PAREN {
-      Component_value.Function ((f, Lex_buffer.make_loc $startpos(f) $endpos(f)), xs)
+      Component_value.Function ((f, Lex_buffer.make_loc_and_fix $startpos(f) $endpos(f)),
+                                (xs, Lex_buffer.make_loc_and_fix $startpos(xs) $endpos(xs)))
     }
   | h = HASH { Component_value.Hash h }
   | n = NUMBER { Component_value.Number n }

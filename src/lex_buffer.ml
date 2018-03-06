@@ -113,5 +113,7 @@ let make_loc ?(loc_ghost=false) start_pos end_pos : Location.t =
   { Location.loc_start= start_pos;
     loc_end = end_pos;
     loc_ghost
-  } |> fix_loc
+  }
 
+let make_loc_and_fix ?(loc_ghost=false) start_pos end_pos : Location.t =
+  make_loc ~loc_ghost start_pos end_pos |> fix_loc
