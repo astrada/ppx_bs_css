@@ -106,35 +106,79 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
       group_params [] params
     in
     let args =
+      let open Component_value in
+      let side_or_corner_expr deg start_loc end_loc =
+        let loc =
+          Lex_buffer.make_loc start_loc.Location.loc_start end_loc.Location.loc_end in
+        render_component_value mode
+          (Float_dimension (deg, "deg"), loc)
+      in
       match name with
       | "linear-gradient"
       | "repeating-linear-gradient" ->
-        let side_or_corner =
+        let (side_or_corner, color_stop_params) =
           match List.hd grouped_params with
-          | [(Component_value.Float_dimension (_, "deg"), _) as cv] ->
-            render_component_value mode cv
-          | [(Component_value.Ident "to", _);
-             (Component_value.Ident "bottom", _)] ->
-            render_component_value mode
-              (Component_value.Float_dimension ("0", "deg"), Location.none)
+          | [(Float_dimension (_, "deg"), _) as cv] ->
+            render_component_value mode cv, List.tl grouped_params
+          | [(Ident "to", start_loc);
+             (Ident "bottom", end_loc)] ->
+            side_or_corner_expr "180" start_loc end_loc, List.tl grouped_params
+          | [(Ident "to", start_loc);
+             (Ident "top", end_loc)] ->
+            side_or_corner_expr "0" start_loc end_loc, List.tl grouped_params
+          | [(Ident "to", start_loc);
+             (Ident "right", end_loc)] ->
+            side_or_corner_expr "90" start_loc end_loc, List.tl grouped_params
+          | [(Ident "to", start_loc);
+             (Ident "left", end_loc)] ->
+            side_or_corner_expr "270" start_loc end_loc, List.tl grouped_params
           | _ ->
             grammar_error loc "Unexpected first parameter"
           | exception (Failure _) ->
+            let implicit_side_or_corner_loc =
+              Lex_buffer.make_loc ~loc_ghost:true
+                name_loc.Location.loc_end
+                name_loc.Location.loc_end in
             render_component_value mode
-              (Component_value.Float_dimension ("0", "deg"), Location.none)
+              (Float_dimension ("180", "deg"), implicit_side_or_corner_loc), grouped_params
         in
-        [side_or_corner;
-         (Exp.construct ~loc
-            { txt = Lident "[]"; loc = loc }
-            None)
-        ]
+        let color_stops =
+          List.rev_map
+            (function
+              | [(color, start_loc) as color_cv;
+                 (Percentage perc, end_loc)] ->
+                let color_expr = render_component_value mode color_cv in
+                let perc_expr = Exp.constant ~loc:end_loc (number_to_const perc) in
+                let loc =
+                  Lex_buffer.make_loc start_loc.Location.loc_start end_loc.Location.loc_end in
+                Exp.tuple ~loc [perc_expr; color_expr]
+              | _ ->
+                (*grammar_error loc ""*)
+                assert false
+            )
+            color_stop_params
+        in
+        let end_loc =
+          Lex_buffer.make_loc ~loc_ghost:true loc.Location.loc_end loc.Location.loc_end in
+        let color_stop_expr =
+          List.fold_left
+            (fun e param ->
+               Exp.construct ~loc
+                 { txt = Lident "::"; loc }
+                 (Some (Exp.tuple ~loc [param; e]))
+            )
+            (Exp.construct ~loc:end_loc
+               { txt = Lident "[]"; loc = end_loc }
+               None)
+            color_stops in
+        [side_or_corner; color_stop_expr]
       | _ ->
         params
         |> List.filter
-          (function (Component_value.Delim ",", _) -> false | _ -> true)
+          (function (Delim ",", _) -> false | _ -> true)
         |> List.map
           (function
-            | (Component_value.Number "0", loc) ->
+            | (Number "0", loc) ->
               Exp.constant ~loc (Const.int 0)
             | c -> render_component_value mode c)
     in
@@ -317,4 +361,3 @@ and render_stylesheet mode ((rs, loc): Stylesheet.t) : expression =
        { txt = Lident "[]"; loc = end_loc }
        None)
     (List.rev rs)
-
