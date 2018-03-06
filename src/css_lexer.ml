@@ -26,26 +26,6 @@ let location_to_string loc =
     (position_to_string loc.Location.loc_start)
     (position_to_string loc.Location.loc_end)
 
-let container_lnum_ref = ref 0
-
-let fix_loc loc =
-  let fix_pos pos =
-    (* It looks like lex_buffer.ml returns a position with 2 extra
-     * chars for parsed lines after the first one. Bug? *)
-    let pos_cnum = if pos.Lexing.pos_lnum > !container_lnum_ref then
-        pos.Lexing.pos_cnum - 2
-      else
-        pos.Lexing.pos_cnum in
-    { pos with
-        Lexing.pos_cnum;
-    } in
-  let loc_start = fix_pos loc.Location.loc_start in
-  let loc_end = fix_pos loc.Location.loc_end in
-  { loc with
-      Location.loc_start;
-      loc_end;
-  }
-
 let token_to_string = function
   | Css_parser.EOF -> "EOF"
   | LEFT_BRACE -> "{"
@@ -82,7 +62,6 @@ let () =
           loc_end = pos;
           loc_ghost = false
         } in
-      let loc = fix_loc loc in
       Some { loc; msg; sub = []; if_highlight = "" }
     | ParseError (token, loc_start, loc_end) ->
       let loc =
@@ -90,14 +69,12 @@ let () =
           loc_end;
           loc_ghost = false
         } in
-      let loc = fix_loc loc in
       let msg =
         Printf.sprintf "Parse error while reading token '%s'"
           (token_to_string token)
       in
       Some { loc; msg; sub = []; if_highlight = "" }
     | GrammarError (msg, loc) ->
-      let loc = fix_loc loc in
       Some { loc; msg; sub = []; if_highlight = "" }
     | _ -> None )
 
@@ -182,7 +159,7 @@ let _z = [%sedlex.regexp? 'Z' | 'z']
 
 let important = [%sedlex.regexp? "!", ws, _i, _m, _p, _o, _r, _t, _a, _n, _t]
 
-let float_dimension = [%sedlex.regexp?
+let length = [%sedlex.regexp?
     (* length *)
     (_c, _a, _p)
   | (_c, _h)
@@ -193,19 +170,30 @@ let float_dimension = [%sedlex.regexp?
   | (_r, _e, _m)
   | (_r, _l, _h)
   | (_v, _h)
+  | (_v, _w)
+  | (_v, _i)
+  | (_v, _b)
+  | (_v, _m, _i, _n)
+  | (_v, _m, _a, _x)
+  | (_c, _m)
   | (_m, _m)
   | _q
-  | (_c, _m)
   | (_i, _n)
-  | (_p, _t)
   | (_p, _c)
+  | (_p, _t)
+]
+
+let angle = [%sedlex.regexp?
     (* angle *)
-  | (_d, _e, _g)
+    (_d, _e, _g)
   | (_g, _r, _a, _d)
   | (_r, _a, _d)
   | (_t, _u, _r, _n)
+]
+
+let time_and_frequency = [%sedlex.regexp?
     (* time *)
-  | _s
+    _s
     (* frequency *)
   | (_h, _z)
   | (_k, _h, _z)
@@ -268,7 +256,11 @@ let rec get_next_token buf =
   | _ -> assert false
 and get_dimension n buf =
   match%sedlex buf with
-  | float_dimension ->
+  | length ->
+    FLOAT_DIMENSION (n, Lex_buffer.latin1 buf)
+  | angle ->
+    FLOAT_DIMENSION (n, Lex_buffer.latin1 buf)
+  | time_and_frequency ->
     FLOAT_DIMENSION (n, Lex_buffer.latin1 buf)
   | int_dimension
   | ident ->
@@ -308,7 +300,7 @@ let parse buf p =
 let parse_string ?container_lnum ?pos s p =
   begin match container_lnum with
   | None -> ()
-  | Some lnum -> container_lnum_ref := lnum
+  | Some lnum -> Lex_buffer.container_lnum_ref := lnum
   end;
   parse (Lex_buffer.of_ascii_string ?pos s) p
 

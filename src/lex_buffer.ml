@@ -89,8 +89,29 @@ let utf8 ?(skip= 0) ?(drop= 0) lexbuf =
   let len = Sedlexing.lexeme_length lexbuf.buf - skip - drop in
   Sedlexing.Utf8.sub_lexeme lexbuf.buf skip len
 
+let container_lnum_ref = ref 0
+
+let fix_loc loc =
+  let fix_pos pos =
+    (* It looks like lex_buffer.ml returns a position with 2 extra
+     * chars for parsed lines after the first one. Bug? *)
+    let pos_cnum = if pos.Lexing.pos_lnum > !container_lnum_ref then
+        pos.Lexing.pos_cnum - 2
+      else
+        pos.Lexing.pos_cnum in
+    { pos with
+        Lexing.pos_cnum;
+    } in
+  let loc_start = fix_pos loc.Location.loc_start in
+  let loc_end = fix_pos loc.Location.loc_end in
+  { loc with
+      Location.loc_start;
+      loc_end;
+  }
+
 let make_loc ?(loc_ghost=false) start_pos end_pos : Location.t =
   { Location.loc_start= start_pos;
     loc_end = end_pos;
     loc_ghost
-  }
+  } |> fix_loc
+

@@ -56,8 +56,11 @@ let float_to_const number =
 let string_to_const ~loc s =
   Exp.constant ~loc (Const.string ~quotation_delimiter:"js" s)
 
-let rec render_component_value mode ((cv, cv_loc): Component_value.t with_loc) : expression =
-  let loc = Css_lexer.fix_loc cv_loc in
+let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : expression =
+  let render_block start_char end_char cs =
+    grammar_error loc ("Unsupported " ^ start_char ^ "-block")
+  in
+
   let render_dimension number dimension const =
     let number_loc =
       { loc with
@@ -80,9 +83,64 @@ let rec render_component_value mode ((cv, cv_loc): Component_value.t with_loc) :
     let arg =
       Exp.constant ~loc:number_loc const in
     Exp.apply ~loc ident [(Nolabel, arg)]
-  in  
-  let render_block start_char end_char cs =
-    grammar_error loc ("Unsupported " ^ start_char ^ "-block") in
+  in
+
+  let render_function (name, name_loc) params =
+    let caml_case_name = to_caml_case name in
+    let ident =
+      Exp.ident ~loc:name_loc { txt = Lident caml_case_name; loc = name_loc } in
+    let grouped_params : Component_value.t with_loc list list =
+      let rec group_param accu xs =
+        match xs with
+        | [] -> accu, []
+        | (Component_value.Delim ",", _) :: rest -> accu, rest
+        | hd :: rest -> group_param (accu @ [hd]) rest
+      in
+      let rec group_params accu xs =
+        match xs with
+        | [] -> accu
+        | _ ->
+          let param, rest = group_param [] xs in
+          group_params (accu @ [param]) rest
+      in
+      group_params [] params
+    in
+    let args =
+      match name with
+      | "linear-gradient"
+      | "repeating-linear-gradient" ->
+        let side_or_corner =
+          match List.hd grouped_params with
+          | [(Component_value.Float_dimension (_, "deg"), _) as cv] ->
+            render_component_value mode cv
+          | [(Component_value.Ident "to", _);
+             (Component_value.Ident "bottom", _)] ->
+            render_component_value mode
+              (Component_value.Float_dimension ("0", "deg"), Location.none)
+          | _ ->
+            grammar_error loc "Unexpected first parameter"
+          | exception (Failure _) ->
+            render_component_value mode
+              (Component_value.Float_dimension ("0", "deg"), Location.none)
+        in
+        [side_or_corner;
+         (Exp.construct ~loc
+            { txt = Lident "[]"; loc = loc }
+            None)
+        ]
+      | _ ->
+        params
+        |> List.filter
+          (function (Component_value.Delim ",", _) -> false | _ -> true)
+        |> List.map
+          (function
+            | (Component_value.Number "0", loc) ->
+              Exp.constant ~loc (Const.int 0)
+            | c -> render_component_value mode c)
+    in
+    Exp.apply ~loc ident (List.map (fun a -> (Nolabel, a)) args)
+  in
+
   match cv with
   | Component_value.Paren_block cs -> render_block "(" ")" cs
   | Bracket_block cs -> render_block "[" "]" cs
@@ -92,7 +150,8 @@ let rec render_component_value mode ((cv, cv_loc): Component_value.t with_loc) :
     let arg = Exp.constant ~loc const in
     Exp.apply ~loc ident [(Nolabel, arg)]
   | Ident i ->
-    Exp.ident ~loc { txt = Lident i; loc }
+    let name = to_caml_case i in
+    Exp.ident ~loc { txt = Lident name; loc }
   | String s ->
     string_to_const ~loc s
   | Uri s ->
@@ -112,20 +171,15 @@ let rec render_component_value mode ((cv, cv_loc): Component_value.t with_loc) :
     else Exp.constant ~loc (number_to_const s)
   | Unicode_range s ->
     grammar_error loc "Unsupported unicode range"
-  | Function ((name, name_loc), params) ->
-    let ident = Exp.ident ~loc:name_loc { txt = Lident name; loc = name_loc } in
-    let args =
-      params
-      |> List.filter
-        (function (Component_value.Delim ",", _) -> false | _ -> true)
-      |> List.map
-        (function
-          | (Component_value.Number "0", loc) ->
-            Exp.constant ~loc (Const.int 0)
-          | c -> render_component_value mode c) in
-    Exp.apply ~loc ident (List.map (fun a -> (Nolabel, a)) args)
+  | Function (f, params) ->
+    render_function f params
   | Float_dimension (number, dimension) ->
-    let const = float_to_const number in
+    let const =
+      if mode = Bs_css && dimension = "deg" then
+        (* bs-css uses int degrees *)
+        Const.integer number
+      else
+        float_to_const number in
     render_dimension number dimension const
   | Dimension (number, dimension) ->
     let const = number_to_const number in
@@ -180,7 +234,6 @@ and render_at_rule mode (ar: At_rule.t) : expression =
 
 and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression =
   let (name, name_loc) = d.Declaration.name in
-  let name_loc = Css_lexer.fix_loc name_loc in
   let name = to_caml_case name in
   let (vs, _) = d.Declaration.value in
   let name =
@@ -195,8 +248,7 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
     List.map (fun v -> render_component_value mode v) vs in
   Exp.apply ~loc:d_loc ident (List.map (fun a -> (Nolabel, a)) args)
 
-and render_declaration_list mode ((dl, dl_loc): Declaration_list.t) : expression =
-  let loc = Css_lexer.fix_loc dl_loc in
+and render_declaration_list mode ((dl, loc): Declaration_list.t) : expression =
   let end_loc =
     Lex_buffer.make_loc ~loc_ghost:true loc.Location.loc_end loc.Location.loc_end in
   List.fold_left
@@ -204,11 +256,9 @@ and render_declaration_list mode ((dl, dl_loc): Declaration_list.t) : expression
        let (d_expr, d_loc) =
          match d with
          | Declaration_list.Declaration decl ->
-           let decl_loc = Css_lexer.fix_loc decl.loc in
-           render_declaration mode decl decl_loc, decl_loc
+           render_declaration mode decl decl.loc, decl.loc
          | Declaration_list.At_rule ar ->
-           let ar_loc = Css_lexer.fix_loc ar.loc in
-           render_at_rule mode ar, ar_loc
+           render_at_rule mode ar, ar.loc
        in
        let loc =
          Lex_buffer.make_loc
@@ -248,7 +298,6 @@ and render_rule mode (r: Rule.t) : expression =
   | Rule.At_rule ar -> render_at_rule mode ar
 
 and render_stylesheet mode ((rs, loc): Stylesheet.t) : expression =
-  let loc = Css_lexer.fix_loc loc in
   let end_loc =
     Lex_buffer.make_loc ~loc_ghost:true loc.Location.loc_end loc.Location.loc_end in
   List.fold_left
@@ -268,3 +317,4 @@ and render_stylesheet mode ((rs, loc): Stylesheet.t) : expression =
        { txt = Lident "[]"; loc = end_loc }
        None)
     (List.rev rs)
+
