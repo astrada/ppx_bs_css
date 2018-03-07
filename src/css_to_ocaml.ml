@@ -56,6 +56,21 @@ let float_to_const number =
 let string_to_const ~loc s =
   Exp.constant ~loc (Const.string ~quotation_delimiter:"js" s)
 
+let list_to_expr end_loc xs =
+  List.fold_left
+    (fun e param ->
+       let loc =
+         Lex_buffer.make_loc
+           ~loc_ghost:true e.pexp_loc.Location.loc_start end_loc.Location.loc_end in
+       Exp.construct ~loc
+         { txt = Lident "::"; loc }
+         (Some (Exp.tuple ~loc [param; e]))
+    )
+    (Exp.construct ~loc:end_loc
+       { txt = Lident "[]"; loc = end_loc }
+       None)
+    xs
+
 let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : expression =
   let render_block start_char end_char cs =
     grammar_error loc ("Unsupported " ^ start_char ^ "-block")
@@ -117,6 +132,25 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
         render_component_value mode
           (Float_dimension (deg, "deg"), loc)
       in
+      let color_stops_to_expr_list color_stop_params =
+        List.rev_map
+          (function
+            | ([(color, start_loc) as color_cv;
+                (Percentage perc, end_loc)], _)
+            | ([(color, start_loc) as color_cv;
+                (Number ("0" as perc), end_loc)], _) ->
+              let color_expr = render_component_value mode color_cv in
+              let perc_expr = Exp.constant ~loc:end_loc (number_to_const perc) in
+              let loc =
+                Lex_buffer.make_loc start_loc.Location.loc_start end_loc.Location.loc_end in
+              Exp.tuple ~loc [perc_expr; color_expr]
+            | (_, loc) ->
+              grammar_error loc "Unexpected color stop"
+          )
+          color_stop_params
+      in
+      let end_loc =
+        Lex_buffer.make_loc ~loc_ghost:true loc.Location.loc_end loc.Location.loc_end in
       match name with
       | "linear-gradient"
       | "repeating-linear-gradient" ->
@@ -148,35 +182,15 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
           | exception (Failure _) ->
             grammar_error params_loc "Missing parameters"
         in
-        let color_stops =
-          List.rev_map
-            (function
-              | ([(color, start_loc) as color_cv;
-                  (Percentage perc, end_loc)], _) ->
-                let color_expr = render_component_value mode color_cv in
-                let perc_expr = Exp.constant ~loc:end_loc (number_to_const perc) in
-                let loc =
-                  Lex_buffer.make_loc start_loc.Location.loc_start end_loc.Location.loc_end in
-                Exp.tuple ~loc [perc_expr; color_expr]
-              | (_, loc) ->
-                grammar_error loc "Unexpected color stop"
-            )
-            color_stop_params
-        in
-        let end_loc =
-          Lex_buffer.make_loc ~loc_ghost:true loc.Location.loc_end loc.Location.loc_end in
-        let color_stop_expr =
-          List.fold_left
-            (fun e param ->
-               Exp.construct ~loc
-                 { txt = Lident "::"; loc }
-                 (Some (Exp.tuple ~loc [param; e]))
-            )
-            (Exp.construct ~loc:end_loc
-               { txt = Lident "[]"; loc = end_loc }
-               None)
-            color_stops in
+        let color_stops = color_stops_to_expr_list color_stop_params in
+        let color_stop_expr = list_to_expr end_loc color_stops in
         [side_or_corner; color_stop_expr]
+      | "radial-gradient"
+      | "repeating-radial-gradient" ->
+        let color_stops = color_stops_to_expr_list grouped_params in
+        let color_stop_expr = list_to_expr end_loc color_stops in
+        [color_stop_expr]
+
       | _ ->
         params
         |> List.filter
