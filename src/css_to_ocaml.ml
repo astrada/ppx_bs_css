@@ -26,6 +26,63 @@ let is_overloaded mode declaration =
     end
   | Bs_typed_css -> true
 
+let is_variant mode ident =
+  (* bs-css uses polymorphic variants to enumerate values. Some of them
+     have corresponding constant, but some others have conflicting names
+     (e.g.: left) or don't have a corresponding constant (e.g.: justify).
+  *)
+  match mode with
+  | Bs_css ->
+    begin match ident with
+      (* float/clear/text-align *)
+      | "left"
+      | "right"
+      | "justify"
+      (* cursor *)
+      | "pointer"
+      | "alias"
+      | "all-scroll"
+      | "cell"
+      | "context-menu"
+      | "default"
+      | "crosshair"
+      | "copy"
+      | "grab"
+      | "grabbing"
+      | "help"
+      | "move"
+      | "not-allowed"
+      | "progress"
+      | "text"
+      | "wait"
+      | "zoom-in"
+      | "zoom-out"
+      (* list-style-type *)
+      | "disc"
+      | "circle"
+      | "decimal"
+      | "lower-alpha"
+      | "upper-alpha"
+      | "lower-greek"
+      | "upper-greek"
+      | "lower-latin"
+      | "upper-latin"
+      | "lower-roman"
+      | "upper-roman"
+      (* outline-style *)
+      | "groove"
+      | "ridge"
+      | "inset"
+      | "outset"
+      (* transform-style *)
+      | "preserve-3d"
+      | "flat"
+      (* font-variant *)
+      | "small-caps" -> true
+      | _ -> false
+    end
+  | Bs_typed_css -> false
+
 let split c s =
   let rec loop s accu =
     try
@@ -71,6 +128,28 @@ let list_to_expr end_loc xs =
        None)
     xs
 
+let group_params params =
+  let rec group_param (accu, loc) xs =
+    match xs with
+    | [] -> (accu, loc), []
+    | (Component_value.Delim ",", _) :: rest -> (accu, loc), rest
+    | (cv, cv_loc) as hd :: rest ->
+      let loc =
+        let loc_start =
+          if loc = Location.none then cv_loc.Location.loc_start
+          else loc.Location.loc_start in
+        Lex_buffer.make_loc loc_start cv_loc.Location.loc_end in
+      group_param (accu @ [hd], loc) rest
+  in
+  let rec group_params accu xs =
+    match xs with
+    | [] -> accu
+    | _ ->
+      let param, rest = group_param ([], Location.none) xs in
+      group_params (accu @ [param]) rest
+  in
+  group_params [] params
+
 let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : expression =
   let render_block start_char end_char cs =
     grammar_error loc ("Unsupported " ^ start_char ^ "-block")
@@ -104,33 +183,12 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
     let caml_case_name = to_caml_case name in
     let ident =
       Exp.ident ~loc:name_loc { txt = Lident caml_case_name; loc = name_loc } in
-    let grouped_params =
-      let rec group_param (accu, loc) xs =
-        match xs with
-        | [] -> (accu, loc), []
-        | (Component_value.Delim ",", _) :: rest -> (accu, loc), rest
-        | (cv, cv_loc) as hd :: rest ->
-          let loc =
-            let loc_start =
-              if loc = Location.none then cv_loc.Location.loc_start
-              else loc.Location.loc_start in
-            Lex_buffer.make_loc loc_start cv_loc.Location.loc_end in
-          group_param (accu @ [hd], loc) rest
-      in
-      let rec group_params accu xs =
-        match xs with
-        | [] -> accu
-        | _ ->
-          let param, rest = group_param ([], Location.none) xs in
-          group_params (accu @ [param]) rest
-      in
-      group_params [] params
-    in
+    let grouped_params = group_params params in
+    let rcv = render_component_value mode in
     let args =
       let open Component_value in
       let side_or_corner_expr deg loc =
-        render_component_value mode
-          (Float_dimension (deg, "deg"), loc)
+        rcv (Float_dimension (deg, "deg"), loc)
       in
       let color_stops_to_expr_list color_stop_params =
         List.rev_map
@@ -139,7 +197,7 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
                 (Percentage perc, end_loc)], _)
             | ([(color, start_loc) as color_cv;
                 (Number ("0" as perc), end_loc)], _) ->
-              let color_expr = render_component_value mode color_cv in
+              let color_expr = rcv color_cv in
               let perc_expr = Exp.constant ~loc:end_loc (number_to_const perc) in
               let loc =
                 Lex_buffer.make_loc start_loc.Location.loc_start end_loc.Location.loc_end in
@@ -157,7 +215,7 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
         let (side_or_corner, color_stop_params) =
           match List.hd grouped_params with
           | ([(Float_dimension (_, "deg"), _) as cv], _) ->
-            render_component_value mode cv, List.tl grouped_params
+            rcv cv, List.tl grouped_params
           | ([(Ident "to", _);
               (Ident "bottom", _)], loc) ->
             side_or_corner_expr "180" loc, List.tl grouped_params
@@ -175,7 +233,7 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
               Lex_buffer.make_loc ~loc_ghost:true
                 params_loc.Location.loc_start
                 params_loc.Location.loc_start in
-            render_component_value mode
+            rcv
               (Float_dimension ("180", "deg"), implicit_side_or_corner_loc), grouped_params
           | (_, loc) ->
             grammar_error loc "Unexpected first parameter"
@@ -190,7 +248,6 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
         let color_stops = color_stops_to_expr_list grouped_params in
         let color_stop_expr = list_to_expr end_loc color_stops in
         [color_stop_expr]
-
       | _ ->
         params
         |> List.filter
@@ -199,7 +256,7 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
           (function
             | (Number "0", loc) ->
               Exp.constant ~loc (Const.int 0)
-            | c -> render_component_value mode c)
+            | c -> rcv c)
     in
     Exp.apply ~loc ident (List.map (fun a -> (Nolabel, a)) args)
   in
@@ -214,7 +271,10 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
     Exp.apply ~loc ident [(Nolabel, arg)]
   | Ident i ->
     let name = to_caml_case i in
-    Exp.ident ~loc { txt = Lident name; loc }
+    if is_variant mode i then
+      Exp.variant ~loc name None
+    else  
+      Exp.ident ~loc { txt = Lident name; loc }
   | String s ->
     string_to_const ~loc s
   | Uri s ->
@@ -238,12 +298,15 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
     render_function f params
   | Float_dimension (number, dimension) ->
     let const =
-      if mode = Bs_css && dimension = "deg" then
-        (* bs-css uses int degrees *)
+      if mode = Bs_css && (dimension = "deg" || dimension = "pt") then
+        (* bs-css uses int degrees and points *)
         Const.integer number
       else
         float_to_const number in
     render_dimension number dimension const
+  | Dimension (number, "ms") when mode = Bs_css ->
+    let const = Const.integer number in
+    Exp.constant ~loc const
   | Dimension (number, dimension) ->
     let const = number_to_const number in
     render_dimension number dimension const
@@ -265,7 +328,8 @@ and render_at_rule mode (ar: At_rule.t) : expression =
                    begin match sr.Style_rule.prelude with
                      | ([Component_value.Percentage p, loc], _) ->
                        Exp.constant ~loc (number_to_const p)
-                     | ([Component_value.Ident "from", loc], _) ->
+                     | ([Component_value.Ident "from", loc], _)
+                     |  ([Component_value.Number "0", loc], _) ->
                        Exp.constant ~loc (Const.int 0)
                      | ([Component_value.Ident "to", loc], _) ->
                        Exp.constant ~loc (Const.int 100)
@@ -296,20 +360,178 @@ and render_at_rule mode (ar: At_rule.t) : expression =
     grammar_error ar.At_rule.loc ("At-rule @" ^ n ^ " not supported")
 
 and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression =
+  let open Component_value in
+  let rcv = render_component_value mode in
   let (name, name_loc) = d.Declaration.name in
-  let name = to_caml_case name in
-  let (vs, _) = d.Declaration.value in
-  let name =
-    if is_overloaded mode name then
-      let parameter_count = List.length vs in
-      if parameter_count > 1 then
-        name ^ (string_of_int parameter_count)
-      else name
-    else name in
-  let ident = Exp.ident ~loc:name_loc { txt = Lident name; loc = name_loc } in
-  let args =
-    List.map (fun v -> render_component_value mode v) vs in
-  Exp.apply ~loc:d_loc ident (List.map (fun a -> (Nolabel, a)) args)
+
+  let render_box_shadow () =
+    let box_shadow_ident =
+      Exp.ident ~loc:name_loc { txt = Lident "boxShadow"; loc = name_loc } in
+    let box_shadow_args grouped_param =
+      let box_shadow_args_without_inset grouped_param loc =
+        match grouped_param with
+        | [cv_offset_x; cv_offset_y; cv_color] ->
+          [(Labelled "x", rcv cv_offset_x);
+           (Labelled "y", rcv cv_offset_y);
+           (Nolabel, rcv cv_color);
+          ]
+        | [cv_offset_x; cv_offset_y; cv_blur_radius; cv_color] ->
+          [(Labelled "x", rcv cv_offset_x);
+           (Labelled "y", rcv cv_offset_y);
+           (Labelled "blur", rcv cv_blur_radius);
+           (Nolabel, rcv cv_color);
+          ]
+        | [cv_offset_x; cv_offset_y; cv_blur_radius; cv_spread_radius; cv_color] ->
+          [(Labelled "x", rcv cv_offset_x);
+           (Labelled "y", rcv cv_offset_y);
+           (Labelled "blur", rcv cv_blur_radius);
+           (Labelled "spread", rcv cv_spread_radius);
+           (Nolabel, rcv cv_color);
+          ]
+        | _ -> grammar_error loc "Unexpected box-shadow parameter"
+      in
+      match grouped_param with
+      | ((Ident "inset", inset_loc) :: rest, loc) ->
+        (Labelled "inset",
+         (Exp.construct ~loc:inset_loc
+            { txt = Lident "true"; loc = inset_loc }
+            None)) :: box_shadow_args_without_inset rest loc
+      | (cvs, loc) ->
+        box_shadow_args_without_inset cvs loc
+    in
+    let (params, _) = d.Declaration.value in
+    let grouped_params = group_params params in
+    let args =
+      List.rev_map
+        (fun params -> box_shadow_args params)
+        grouped_params in
+    let ident = Exp.ident ~loc:name_loc { txt = Lident "boxShadows"; loc = name_loc } in
+    let box_shadow_list =
+      List.map
+        (fun arg -> Exp.apply box_shadow_ident arg)
+        args in
+    Exp.apply ident [(Nolabel, list_to_expr name_loc box_shadow_list)]
+  in
+
+  let render_text_shadow () =
+    let text_shadow_args params loc =
+      match params with
+      | [cv_offset_x; cv_offset_y; cv_color] ->
+        [(Labelled "x", rcv cv_offset_x);
+         (Labelled "y", rcv cv_offset_y);
+         (Nolabel, rcv cv_color);
+        ]
+      | [cv_offset_x; cv_offset_y; cv_blur_radius; cv_color] ->
+        [(Labelled "x", rcv cv_offset_x);
+         (Labelled "y", rcv cv_offset_y);
+         (Labelled "blur", rcv cv_blur_radius);
+         (Nolabel, rcv cv_color);
+        ]
+      | [cv_offset_x; cv_offset_y; cv_blur_radius; cv_spread_radius; cv_color] ->
+        [(Labelled "x", rcv cv_offset_x);
+         (Labelled "y", rcv cv_offset_y);
+         (Labelled "blur", rcv cv_blur_radius);
+         (Labelled "spread", rcv cv_spread_radius);
+         (Nolabel, rcv cv_color);
+        ]
+      | _ -> grammar_error loc "Unexpected text-shadow parameter"
+    in
+    let (params, loc) = d.Declaration.value in
+    let args = text_shadow_args params loc in
+    let ident = Exp.ident ~loc:name_loc { txt = Lident "textShadow"; loc = name_loc } in
+    Exp.apply ident args
+  in
+
+  let render_transition () =
+    let transition_ident =
+      Exp.ident ~loc:name_loc { txt = Lident "transition"; loc = name_loc } in
+    let render_property property loc =
+      Exp.constant ~loc (Const.string property)
+    in
+    let transition_args (grouped_param, loc) =
+      match grouped_param with
+      | [(Ident property, p_loc)] ->
+        [(Nolabel, render_property property p_loc);
+        ]
+      | [(Ident property, p_loc);
+         (Dimension _, _) as cv_duration] ->
+        [(Labelled "duration", rcv cv_duration);
+         (Nolabel, render_property property p_loc);
+        ]
+      | [(Ident property, p_loc);
+         (Dimension _, _) as cv_duration;
+         (Dimension _, _) as cv_delay] ->
+        [(Labelled "duration", rcv cv_duration);
+         (Labelled "delay", rcv cv_delay);
+         (Nolabel, render_property property p_loc);
+        ]
+      | [(Ident property, loc);
+         (Dimension _, _) as cv_duration;
+         (Dimension _, _) as cv_delay;
+         (Ident _, _) as cv_timing_function]
+      | [(Ident property, loc);
+         (Dimension _, _) as cv_duration;
+         (Dimension _, _) as cv_delay;
+         (Function _, _) as cv_timing_function] ->
+        [(Labelled "duration", rcv cv_duration);
+         (Labelled "delay", rcv cv_delay);
+         (Labelled "timingFunction", rcv cv_timing_function);
+         (Nolabel, render_property property loc);
+        ]
+      | _ -> grammar_error loc "Unexpected transition parameter"
+    in
+    let (params, _) = d.Declaration.value in
+    let grouped_params = group_params params in
+    let args =
+      List.rev_map
+        (fun params -> transition_args params)
+        grouped_params in
+    let ident = Exp.ident ~loc:name_loc { txt = Lident "transitions"; loc = name_loc } in
+    let transition_list =
+      List.map
+        (fun arg -> Exp.apply transition_ident arg)
+        args in
+    Exp.apply ident [(Nolabel, list_to_expr name_loc transition_list)]
+  in
+
+  let render_standard_declaration () =
+    let name = to_caml_case name in
+    let (vs, _) = d.Declaration.value in
+    let name =
+      if is_overloaded mode name then
+        let parameter_count = List.length vs in
+        if parameter_count > 1 then
+          name ^ (string_of_int parameter_count)
+        else name
+      else name in
+    let ident = Exp.ident ~loc:name_loc { txt = Lident name; loc = name_loc } in
+    let args =
+      List.map (fun v -> rcv v) vs in
+    Exp.apply ~loc:d_loc ident (List.map (fun a -> (Nolabel, a)) args)
+  in
+
+  let render_transform () =
+    let (vs, loc) = d.Declaration.value in
+    if List.length vs = 1 then
+      render_standard_declaration ()
+    else
+      let cvs = List.rev_map (fun v -> rcv v) vs in
+      let arg = list_to_expr loc cvs in
+      let ident = Exp.ident ~loc:name_loc { txt = Lident "transforms"; loc = name_loc } in
+      Exp.apply ~loc:d_loc ident [Nolabel, arg]
+  in
+
+  match name with
+  | "box-shadow" ->
+    render_box_shadow ()
+  | "text-shadow" ->
+    render_text_shadow ()
+  | "transform" ->
+    render_transform ()
+  | "transition" ->
+    render_transition ()
+  | _ ->
+    render_standard_declaration ()
 
 and render_declaration_list mode ((dl, loc): Declaration_list.t) : expression =
   let end_loc =

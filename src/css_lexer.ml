@@ -57,18 +57,10 @@ let () =
   Location.register_error_of_exn (
     function
     | LexingError (pos, msg) ->
-      let loc =
-        { Location.loc_start = pos;
-          loc_end = pos;
-          loc_ghost = false
-        } in
+      let loc = Lex_buffer.make_loc_and_fix pos pos in
       Some { loc; msg; sub = []; if_highlight = "" }
-    | ParseError (token, loc_start, loc_end) ->
-      let loc =
-        { Location.loc_start;
-          loc_end;
-          loc_ghost = false
-        } in
+    | ParseError (token, start_pos, end_pos) ->
+      let loc = Lex_buffer.make_loc_and_fix start_pos end_pos in
       let msg =
         Printf.sprintf "Parse error while reading token '%s'"
           (token_to_string token)
