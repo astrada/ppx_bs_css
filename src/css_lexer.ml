@@ -186,6 +186,7 @@ let angle = [%sedlex.regexp?
 let time_and_frequency = [%sedlex.regexp?
     (* time *)
     _s
+  | (_m, _s)
     (* frequency *)
   | (_h, _z)
   | (_k, _h, _z)
@@ -194,8 +195,6 @@ let time_and_frequency = [%sedlex.regexp?
 let int_dimension = [%sedlex.regexp?
     (* length *)
     (_p, _x)
-    (* time *)
-  | (_m, _s)
 ]
 
 let discard_comments_and_white_spaces buf =
