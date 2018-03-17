@@ -78,7 +78,10 @@ let is_variant mode ident =
       | "preserve-3d"
       | "flat"
       (* font-variant *)
-      | "small-caps" -> true
+      | "small-caps"
+      (* step-timing-function *)
+      | "start"
+      | "end" -> true
       | _ -> false
     end
   | Bs_typed_css -> false
@@ -149,6 +152,70 @@ let group_params params =
       group_params (accu @ [param]) rest
   in
   group_params [] params
+
+let is_time component_value =
+  let open Component_value in
+  match component_value with
+  | Float_dimension (_, "s")
+  | Float_dimension (_, "ms") -> true
+  | _ -> false
+
+let is_timing_function component_value =
+  let open Component_value in
+  match component_value with
+  | Ident "linear"
+  (* cubic-bezier-timing-function *)
+  | Ident "ease"
+  | Ident "ease-in"
+  | Ident "ease-out"
+  | Ident "ease-in-out"
+  | Function (("cubic-bezier", _), _)
+  (* step-timing-function *)
+  | Ident "step-start"
+  | Ident "step-end"
+  | Function (("steps", _), _)
+  (* frames-timing-function *)
+  | Function (("frames", _), _) -> true
+  | _ -> false
+
+let is_animation_iteration_count component_value =
+  let open Component_value in
+  match component_value with
+  | Ident "infinite"
+  | Function (("count", _), _) -> true
+  | _ -> false
+
+let is_animation_direction component_value =
+  let open Component_value in
+  match component_value with
+  | Ident "normal"
+  | Ident "reverse"
+  | Ident "alternate"
+  | Ident "alternate-reverse" -> true
+  | _ -> false
+
+let is_animation_fill_mode component_value =
+  let open Component_value in
+  match component_value with
+  | Ident "none"
+  | Ident "forwards"
+  | Ident "backwards"
+  | Ident "both" -> true
+  | _ -> false
+
+let is_animation_play_state component_value =
+  let open Component_value in
+  match component_value with
+  | Ident "running"
+  | Ident "paused" -> true
+  | _ -> false
+
+let is_keyframes_name component_value =
+  let open Component_value in
+  match component_value with
+  | Ident _
+  | String _ -> true
+  | _ -> false
 
 let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : expression =
   let render_block start_char end_char cs =
@@ -296,17 +363,21 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
     grammar_error loc "Unsupported unicode range"
   | Function (f, params) ->
     render_function f params
+  | Float_dimension (number, "ms") when mode = Bs_css ->
+    (* bs-css expects milliseconds as an int constant *)
+    let const = Const.integer number in
+    Exp.constant ~loc const
   | Float_dimension (number, dimension) ->
     let const =
       if mode = Bs_css && (dimension = "deg" || dimension = "pt") then
         (* bs-css uses int degrees and points *)
         Const.integer number
+      else if mode = Bs_typed_css && dimension = "ms" then
+        (* bs-typed-css uses int milliseconds *)
+        Const.integer number
       else
         float_to_const number in
     render_dimension number dimension const
-  | Dimension (number, "ms") when mode = Bs_css ->
-    let const = Const.integer number in
-    Exp.constant ~loc const
   | Dimension (number, dimension) ->
     let const = number_to_const number in
     render_dimension number dimension const
@@ -363,6 +434,53 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
   let open Component_value in
   let rcv = render_component_value mode in
   let (name, name_loc) = d.Declaration.name in
+
+  (* https://developer.mozilla.org/en-US/docs/Web/CSS/animation *)
+  let render_animation () =
+    let animation_ident =
+      Exp.ident ~loc:name_loc { txt = Lident "animation"; loc = name_loc } in
+    let animation_args (grouped_param, _) =
+      List.fold_left
+        (fun args ((v, loc) as cv) ->
+           if is_time v then
+             (* The first value that can be parsed as a <time> is assigned to the
+                animation-duration, and the second one is assigned to animation-delay. *)
+             (if List.exists (function (Labelled "duration", _) -> true | _ -> false) args then
+                (Labelled "delay", rcv cv)
+              else
+                (Labelled "duration", rcv cv)) :: args
+           else if is_timing_function v then
+             (Labelled "timingFunction", rcv cv) :: args
+           else if is_animation_iteration_count v then
+             (Labelled "iterationCount", rcv cv) :: args
+           else if is_animation_direction v then
+             (Labelled "direction", rcv cv) :: args
+           else if is_animation_fill_mode v then
+             (Labelled "fillMode", rcv cv) :: args
+           else if is_animation_play_state v then
+             (Labelled "playState", rcv cv) :: args
+           else if is_keyframes_name v then
+             let s = match v with | Ident s | String s -> s | _ -> assert false in
+             let i = Exp.ident ~loc { txt = Lident s; loc } in
+             (Nolabel, i) :: args
+           else grammar_error loc "Unexpected animation value"
+        )
+        []
+        grouped_param
+    in
+    let (params, _) = d.Declaration.value in
+    let grouped_params = group_params params in
+    let args =
+      List.rev_map
+        (fun params -> animation_args params)
+        grouped_params in
+    let ident = Exp.ident ~loc:name_loc { txt = Lident "animations"; loc = name_loc } in
+    let box_shadow_list =
+      List.map
+        (fun arg -> Exp.apply animation_ident arg)
+        args in
+    Exp.apply ident [(Nolabel, list_to_expr name_loc box_shadow_list)]
+  in
 
   let render_box_shadow () =
     let box_shadow_ident =
@@ -454,24 +572,24 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
         [(Nolabel, render_property property p_loc);
         ]
       | [(Ident property, p_loc);
-         (Dimension _, _) as cv_duration] ->
+         (Float_dimension _, _) as cv_duration] ->
         [(Labelled "duration", rcv cv_duration);
          (Nolabel, render_property property p_loc);
         ]
       | [(Ident property, p_loc);
-         (Dimension _, _) as cv_duration;
-         (Dimension _, _) as cv_delay] ->
+         (Float_dimension _, _) as cv_duration;
+         (Float_dimension _, _) as cv_delay] ->
         [(Labelled "duration", rcv cv_duration);
          (Labelled "delay", rcv cv_delay);
          (Nolabel, render_property property p_loc);
         ]
       | [(Ident property, loc);
-         (Dimension _, _) as cv_duration;
-         (Dimension _, _) as cv_delay;
+         (Float_dimension _, _) as cv_duration;
+         (Float_dimension _, _) as cv_delay;
          (Ident _, _) as cv_timing_function]
       | [(Ident property, loc);
-         (Dimension _, _) as cv_duration;
-         (Dimension _, _) as cv_delay;
+         (Float_dimension _, _) as cv_duration;
+         (Float_dimension _, _) as cv_delay;
          (Function _, _) as cv_timing_function] ->
         [(Labelled "duration", rcv cv_duration);
          (Labelled "delay", rcv cv_delay);
@@ -522,13 +640,15 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
   in
 
   match name with
-  | "box-shadow" ->
+  | "animation" when mode = Bs_css ->
+    render_animation ()
+  | "box-shadow" when mode = Bs_css ->
     render_box_shadow ()
-  | "text-shadow" ->
+  | "text-shadow" when mode = Bs_css ->
     render_text_shadow ()
-  | "transform" ->
+  | "transform" when mode = Bs_css ->
     render_transform ()
-  | "transition" ->
+  | "transition" when mode = Bs_css ->
     render_transition ()
   | _ ->
     render_standard_declaration ()
