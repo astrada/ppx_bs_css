@@ -156,8 +156,7 @@ let group_params params =
 let is_time component_value =
   let open Component_value in
   match component_value with
-  | Float_dimension (_, "s")
-  | Float_dimension (_, "ms") -> true
+  | Float_dimension (_, _, Time) -> true
   | _ -> false
 
 let is_timing_function component_value =
@@ -255,7 +254,7 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
     let args =
       let open Component_value in
       let side_or_corner_expr deg loc =
-        rcv (Float_dimension (deg, "deg"), loc)
+        rcv (Float_dimension (deg, "deg", Angle), loc)
       in
       let color_stops_to_expr_list color_stop_params =
         List.rev_map
@@ -281,7 +280,7 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
       | "repeating-linear-gradient" ->
         let (side_or_corner, color_stop_params) =
           match List.hd grouped_params with
-          | ([(Float_dimension (_, "deg"), _) as cv], _) ->
+          | ([(Float_dimension (_, "deg", Angle), _) as cv], _) ->
             rcv cv, List.tl grouped_params
           | ([(Ident "to", _);
               (Ident "bottom", _)], loc) ->
@@ -301,7 +300,7 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
                 params_loc.Location.loc_start
                 params_loc.Location.loc_start in
             rcv
-              (Float_dimension ("180", "deg"), implicit_side_or_corner_loc), grouped_params
+              (Float_dimension ("180", "deg", Angle), implicit_side_or_corner_loc), grouped_params
           | (_, loc) ->
             grammar_error loc "Unexpected first parameter"
           | exception (Failure _) ->
@@ -363,13 +362,16 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
     grammar_error loc "Unsupported unicode range"
   | Function (f, params) ->
     render_function f params
-  | Float_dimension (number, "ms") when mode = Bs_css ->
+  | Float_dimension (number, "ms", Time) when mode = Bs_css ->
     (* bs-css expects milliseconds as an int constant *)
     let const = Const.integer number in
     Exp.constant ~loc const
-  | Float_dimension (number, dimension) ->
+  | Float_dimension (number, dimension, _) ->
     let const =
-      if mode = Bs_css && (dimension = "deg" || dimension = "pt") then
+      if dimension = "px" then
+        (* Pixels are treated as integers by both libraries *)
+        Const.integer number
+      else if mode = Bs_css && (dimension = "deg" || dimension = "pt") then
         (* bs-css uses int degrees and points *)
         Const.integer number
       else if mode = Bs_typed_css && dimension = "ms" then

@@ -26,6 +26,12 @@ let location_to_string loc =
     (position_to_string loc.Location.loc_start)
     (position_to_string loc.Location.loc_end)
 
+let dimension_to_string = function
+  | Css_types.Length -> "length"
+  | Angle -> "angle"
+  | Time -> "time"
+  | Frequency -> "frequency"
+
 let token_to_string = function
   | Css_parser.EOF -> "EOF"
   | LEFT_BRACE -> "{"
@@ -50,7 +56,8 @@ let token_to_string = function
   | HASH s -> "HASH(" ^ s ^ ")"
   | NUMBER s -> "NUMBER(" ^ s ^ ")"
   | UNICODE_RANGE s -> "UNICODE_RANGE(" ^ s ^ ")"
-  | FLOAT_DIMENSION (n, d) -> "FLOAT_DIMENSION(" ^ n ^ ", " ^ d ^ ")"
+  | FLOAT_DIMENSION (n, s, d) -> "FLOAT_DIMENSION(" ^ n ^ ", " ^ s ^ ", " ^
+                                 (dimension_to_string d) ^ ")"
   | DIMENSION (n, d) -> "DIMENSION(" ^ n ^ ", " ^ d ^ ")"
 
 let () =
@@ -152,7 +159,6 @@ let _z = [%sedlex.regexp? 'Z' | 'z']
 let important = [%sedlex.regexp? "!", ws, _i, _m, _p, _o, _r, _t, _a, _n, _t]
 
 let length = [%sedlex.regexp?
-    (* length *)
     (_c, _a, _p)
   | (_c, _h)
   | (_e, _m)
@@ -173,28 +179,24 @@ let length = [%sedlex.regexp?
   | (_i, _n)
   | (_p, _c)
   | (_p, _t)
+  | (_p, _x)
 ]
 
 let angle = [%sedlex.regexp?
-    (* angle *)
     (_d, _e, _g)
   | (_g, _r, _a, _d)
   | (_r, _a, _d)
   | (_t, _u, _r, _n)
 ]
 
-let time_and_frequency = [%sedlex.regexp?
-    (* time *)
+let time = [%sedlex.regexp?
     _s
   | (_m, _s)
-    (* frequency *)
-  | (_h, _z)
-  | (_k, _h, _z)
 ]
 
-let int_dimension = [%sedlex.regexp?
-    (* length *)
-    (_p, _x)
+let frequency = [%sedlex.regexp?
+    (_h, _z)
+  | (_k, _h, _z)
 ]
 
 let discard_comments_and_white_spaces buf =
@@ -248,12 +250,13 @@ let rec get_next_token buf =
 and get_dimension n buf =
   match%sedlex buf with
   | length ->
-    FLOAT_DIMENSION (n, Lex_buffer.latin1 buf)
+    FLOAT_DIMENSION (n, Lex_buffer.latin1 buf, Css_types.Length)
   | angle ->
-    FLOAT_DIMENSION (n, Lex_buffer.latin1 buf)
-  | time_and_frequency ->
-    FLOAT_DIMENSION (n, Lex_buffer.latin1 buf)
-  | int_dimension
+    FLOAT_DIMENSION (n, Lex_buffer.latin1 buf, Css_types.Angle)
+  | time ->
+    FLOAT_DIMENSION (n, Lex_buffer.latin1 buf, Css_types.Time)
+  | frequency ->
+    FLOAT_DIMENSION (n, Lex_buffer.latin1 buf, Css_types.Frequency)
   | ident ->
     DIMENSION (n, Lex_buffer.latin1 buf)
   | _ ->

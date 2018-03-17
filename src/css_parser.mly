@@ -27,7 +27,7 @@ open Css_types
 %token <string> HASH
 %token <string> NUMBER
 %token <string> UNICODE_RANGE
-%token <string * string> FLOAT_DIMENSION
+%token <string * string * Css_types.dimension> FLOAT_DIMENSION
 %token <string * string> DIMENSION
 
 %start <Css_types.Stylesheet.t> stylesheet

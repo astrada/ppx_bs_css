@@ -1,5 +1,11 @@
 type 'a with_loc = 'a * Location.t
 
+type dimension =
+  | Length
+  | Angle
+  | Time
+  | Frequency
+
 module rec Component_value : sig
   type t =
     | Paren_block of t with_loc list
@@ -14,7 +20,7 @@ module rec Component_value : sig
     | Hash of string
     | Number of string
     | Unicode_range of string
-    | Float_dimension of (string * string)
+    | Float_dimension of (string * string * dimension)
     | Dimension of (string * string)
 end
 
