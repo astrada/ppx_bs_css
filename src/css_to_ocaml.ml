@@ -216,6 +216,30 @@ let is_keyframes_name component_value =
   | String _ -> true
   | _ -> false
 
+let is_ident ident component_value =
+  let open Component_value in
+  match component_value with
+  | Ident i when i = ident -> true
+  | _ -> false
+
+let is_length component_value =
+  let open Component_value in
+  match component_value with
+  | Number "0"
+  | Float_dimension (_, _, Length) -> true
+  | _ -> false
+
+let is_color component_value =
+  let open Component_value in
+  match component_value with
+  | Function (("rgb", _), _)
+  | Function (("rgba", _), _)
+  | Function (("hsl", _), _)
+  | Function (("hsla", _), _)
+  | Hash _
+  | Ident _ -> true
+  | _ -> false
+
 let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : expression =
   let render_block start_char end_char cs =
     grammar_error loc ("Unsupported " ^ start_char ^ "-block")
@@ -386,7 +410,7 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
 
 and render_at_rule mode (ar: At_rule.t) : expression =
   match ar.At_rule.name with
-  | ("keyframes" as n, loc) ->
+  | ("keyframes" as n, loc) when mode = Bs_css ->
     let ident = Exp.ident ~loc { txt = Lident n; loc } in
     begin match ar.At_rule.block with
       | Brace_block.Stylesheet (rs, loc) ->
@@ -445,12 +469,11 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
       List.fold_left
         (fun args ((v, loc) as cv) ->
            if is_time v then
-             (* The first value that can be parsed as a <time> is assigned to the
-                animation-duration, and the second one is assigned to animation-delay. *)
-             (if List.exists (function (Labelled "duration", _) -> true | _ -> false) args then
-                (Labelled "delay", rcv cv)
-              else
-                (Labelled "duration", rcv cv)) :: args
+             if not (List.exists (function (Labelled "duration", _) -> true | _ -> false) args) then
+               (Labelled "duration", rcv cv) :: args
+             else if not (List.exists (function (Labelled "delay", _) -> true | _ -> false) args) then
+               (Labelled "delay", rcv cv) :: args
+             else grammar_error loc "animation canot have more than 2 time values"
            else if is_timing_function v then
              (Labelled "timingFunction", rcv cv) :: args
            else if is_animation_iteration_count v then
@@ -484,40 +507,34 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
     Exp.apply ident [(Nolabel, list_to_expr name_loc box_shadow_list)]
   in
 
+  (* https://developer.mozilla.org/en-US/docs/Web/CSS/box-shadow *)
   let render_box_shadow () =
     let box_shadow_ident =
       Exp.ident ~loc:name_loc { txt = Lident "boxShadow"; loc = name_loc } in
-    let box_shadow_args grouped_param =
-      let box_shadow_args_without_inset grouped_param loc =
-        match grouped_param with
-        | [cv_offset_x; cv_offset_y; cv_color] ->
-          [(Labelled "x", rcv cv_offset_x);
-           (Labelled "y", rcv cv_offset_y);
-           (Nolabel, rcv cv_color);
-          ]
-        | [cv_offset_x; cv_offset_y; cv_blur_radius; cv_color] ->
-          [(Labelled "x", rcv cv_offset_x);
-           (Labelled "y", rcv cv_offset_y);
-           (Labelled "blur", rcv cv_blur_radius);
-           (Nolabel, rcv cv_color);
-          ]
-        | [cv_offset_x; cv_offset_y; cv_blur_radius; cv_spread_radius; cv_color] ->
-          [(Labelled "x", rcv cv_offset_x);
-           (Labelled "y", rcv cv_offset_y);
-           (Labelled "blur", rcv cv_blur_radius);
-           (Labelled "spread", rcv cv_spread_radius);
-           (Nolabel, rcv cv_color);
-          ]
-        | _ -> grammar_error loc "Unexpected box-shadow parameter"
-      in
-      match grouped_param with
-      | ((Ident "inset", inset_loc) :: rest, loc) ->
-        (Labelled "inset",
-         (Exp.construct ~loc:inset_loc
-            { txt = Lident "true"; loc = inset_loc }
-            None)) :: box_shadow_args_without_inset rest loc
-      | (cvs, loc) ->
-        box_shadow_args_without_inset cvs loc
+    let box_shadow_args (grouped_param, _) =
+      List.fold_left
+        (fun args ((v, loc) as cv) ->
+           if is_ident "inset" v then
+             (Labelled "inset",
+              (Exp.construct ~loc
+                 { txt = Lident "true"; loc }
+                 None)) :: args
+           else if is_length v then
+             if not (List.exists (function (Labelled "x", _) -> true | _ -> false) args) then
+               (Labelled "x", rcv cv) :: args
+             else if not (List.exists (function (Labelled "y", _) -> true | _ -> false) args) then
+               (Labelled "y", rcv cv) :: args
+             else if not (List.exists (function (Labelled "blur", _) -> true | _ -> false) args) then
+               (Labelled "blur", rcv cv) :: args
+             else if not (List.exists (function (Labelled "spread", _) -> true | _ -> false) args) then
+               (Labelled "spread", rcv cv) :: args
+             else grammar_error loc "box-shadow cannot have more than 4 length values"
+           else if is_color v then
+             (Nolabel, rcv cv) :: args
+           else grammar_error loc "Unexpected box-shadow value"
+        )
+        []
+        grouped_param
     in
     let (params, _) = d.Declaration.value in
     let grouped_params = group_params params in
@@ -533,28 +550,30 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
     Exp.apply ident [(Nolabel, list_to_expr name_loc box_shadow_list)]
   in
 
+  (* https://developer.mozilla.org/en-US/docs/Web/CSS/text-shadow *)
   let render_text_shadow () =
     let text_shadow_args params loc =
-      match params with
-      | [cv_offset_x; cv_offset_y; cv_color] ->
-        [(Labelled "x", rcv cv_offset_x);
-         (Labelled "y", rcv cv_offset_y);
-         (Nolabel, rcv cv_color);
-        ]
-      | [cv_offset_x; cv_offset_y; cv_blur_radius; cv_color] ->
-        [(Labelled "x", rcv cv_offset_x);
-         (Labelled "y", rcv cv_offset_y);
-         (Labelled "blur", rcv cv_blur_radius);
-         (Nolabel, rcv cv_color);
-        ]
-      | [cv_offset_x; cv_offset_y; cv_blur_radius; cv_spread_radius; cv_color] ->
-        [(Labelled "x", rcv cv_offset_x);
-         (Labelled "y", rcv cv_offset_y);
-         (Labelled "blur", rcv cv_blur_radius);
-         (Labelled "spread", rcv cv_spread_radius);
-         (Nolabel, rcv cv_color);
-        ]
-      | _ -> grammar_error loc "Unexpected text-shadow parameter"
+      List.fold_left
+        (fun args ((v, loc) as cv) ->
+           if is_ident "inset" v then
+             (Labelled "inset",
+              (Exp.construct ~loc
+                 { txt = Lident "true"; loc }
+                 None)) :: args
+           else if is_length v then
+             if not (List.exists (function (Labelled "x", _) -> true | _ -> false) args) then
+               (Labelled "x", rcv cv) :: args
+             else if not (List.exists (function (Labelled "y", _) -> true | _ -> false) args) then
+               (Labelled "y", rcv cv) :: args
+             else if not (List.exists (function (Labelled "blur", _) -> true | _ -> false) args) then
+               (Labelled "blur", rcv cv) :: args
+             else grammar_error loc "box-shadow cannot have more than 3 length values"
+           else if is_color v then
+             (Nolabel, rcv cv) :: args
+           else grammar_error loc "Unexpected box-shadow value"
+        )
+        []
+        params
     in
     let (params, loc) = d.Declaration.value in
     let args = text_shadow_args params loc in
@@ -562,6 +581,7 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
     Exp.apply ident args
   in
 
+  (* https://developer.mozilla.org/en-US/docs/Web/CSS/transition *)
   let render_transition () =
     let transition_ident =
       Exp.ident ~loc:name_loc { txt = Lident "transition"; loc = name_loc } in
@@ -569,36 +589,23 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
       Exp.constant ~loc (Const.string property)
     in
     let transition_args (grouped_param, loc) =
-      match grouped_param with
-      | [(Ident property, p_loc)] ->
-        [(Nolabel, render_property property p_loc);
-        ]
-      | [(Ident property, p_loc);
-         (Float_dimension _, _) as cv_duration] ->
-        [(Labelled "duration", rcv cv_duration);
-         (Nolabel, render_property property p_loc);
-        ]
-      | [(Ident property, p_loc);
-         (Float_dimension _, _) as cv_duration;
-         (Float_dimension _, _) as cv_delay] ->
-        [(Labelled "duration", rcv cv_duration);
-         (Labelled "delay", rcv cv_delay);
-         (Nolabel, render_property property p_loc);
-        ]
-      | [(Ident property, loc);
-         (Float_dimension _, _) as cv_duration;
-         (Float_dimension _, _) as cv_delay;
-         (Ident _, _) as cv_timing_function]
-      | [(Ident property, loc);
-         (Float_dimension _, _) as cv_duration;
-         (Float_dimension _, _) as cv_delay;
-         (Function _, _) as cv_timing_function] ->
-        [(Labelled "duration", rcv cv_duration);
-         (Labelled "delay", rcv cv_delay);
-         (Labelled "timingFunction", rcv cv_timing_function);
-         (Nolabel, render_property property loc);
-        ]
-      | _ -> grammar_error loc "Unexpected transition parameter"
+      List.fold_left
+        (fun args ((v, loc) as cv) ->
+           if is_time v then
+             if not (List.exists (function (Labelled "duration", _) -> true | _ -> false) args) then
+               (Labelled "duration", rcv cv) :: args
+             else if not (List.exists (function (Labelled "delay", _) -> true | _ -> false) args) then
+               (Labelled "delay", rcv cv) :: args
+             else grammar_error loc "transition cannot have more than 2 time values"
+           else if is_timing_function v then
+             (Labelled "timingFunction", rcv cv) :: args
+           else
+             match v with
+             | Ident p -> (Nolabel, render_property p loc) :: args
+             | _ -> grammar_error loc "Unexpected transition value"
+        )
+        []
+        grouped_param
     in
     let (params, _) = d.Declaration.value in
     let grouped_params = group_params params in
