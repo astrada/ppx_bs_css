@@ -662,29 +662,20 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
   | _ ->
     render_standard_declaration ()
 
-and render_declaration_list mode ((dl, loc): Declaration_list.t) : expression =
-  let end_loc =
-    Lex_buffer.make_loc ~loc_ghost:true loc.Location.loc_end loc.Location.loc_end in
-  List.fold_left
-    (fun e d ->
-       let (d_expr, d_loc) =
-         match d with
-         | Declaration_list.Declaration decl ->
-           render_declaration mode decl decl.loc, decl.loc
-         | Declaration_list.At_rule ar ->
-           render_at_rule mode ar, ar.loc
-       in
-       let loc =
-         Lex_buffer.make_loc
-           ~loc_ghost:true d_loc.Location.loc_start loc.Location.loc_end in
-       Exp.construct ~loc
-         { txt = Lident "::"; loc }
-         (Some (Exp.tuple ~loc [d_expr; e]));
+and render_declarations mode (ds: Declaration_list.kind list) : expression list =
+  List.rev_map
+    (fun declaration ->
+       match declaration with
+       | Declaration_list.Declaration decl ->
+         render_declaration mode decl decl.loc
+       | Declaration_list.At_rule ar ->
+         render_at_rule mode ar
     )
-    (Exp.construct ~loc:end_loc
-       { txt = Lident "[]"; loc = end_loc }
-       None)
-    (List.rev dl)
+    ds
+
+and render_declaration_list mode ((dl, loc): Declaration_list.t) : expression =
+  let expr_with_loc_list = render_declarations mode dl in
+  list_to_expr loc expr_with_loc_list
 
 and render_style_rule mode (sr: Style_rule.t) : expression =
   let (prelude, prelude_loc) = sr.Style_rule.prelude in
@@ -701,6 +692,8 @@ and render_style_rule mode (sr: Style_rule.t) : expression =
       )
       ""
       (List.rev prelude) in
+      print_string "Selector: ";
+      print_endline selector;
   let selector_expr = string_to_const ~loc:prelude_loc selector in
   let dl_expr = render_declaration_list mode sr.Style_rule.block in
   let lident =
@@ -716,22 +709,17 @@ and render_rule mode (r: Rule.t) : expression =
   | Rule.At_rule ar -> render_at_rule mode ar
 
 and render_stylesheet mode ((rs, loc): Stylesheet.t) : expression =
-  let end_loc =
-    Lex_buffer.make_loc ~loc_ghost:true loc.Location.loc_end loc.Location.loc_end in
-  List.fold_left
-    (fun e r ->
-       let (r_expr, r_loc) =
-         match r with
-         | Rule.Style_rule sr -> render_rule mode r, sr.Style_rule.loc
-         | Rule.At_rule ar -> render_rule mode r, ar.At_rule.loc in
-       let loc =
-         Lex_buffer.make_loc
-           ~loc_ghost:true r_loc.Location.loc_start loc.Location.loc_end in
-       Exp.construct ~loc
-         { txt = Lident "::"; loc }
-         (Some (Exp.tuple ~loc [r_expr; e]));
-    )
-    (Exp.construct ~loc:end_loc
-       { txt = Lident "[]"; loc = end_loc }
-       None)
-    (List.rev rs)
+  let rule_expr_list =
+    List.rev_map
+      (fun rule ->
+         match rule with
+         | Rule.Style_rule { Style_rule.prelude = ([], _);
+                             block = (ds, _); } ->
+           render_declarations mode ds
+         | Rule.Style_rule sr ->
+           [render_rule mode rule]
+         | Rule.At_rule ar ->
+           [render_rule mode rule]
+      )
+      rs |> List.concat in
+  list_to_expr loc rule_expr_list
