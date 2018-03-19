@@ -703,7 +703,11 @@ and render_style_rule mode (sr: Style_rule.t) : expression =
       (List.rev prelude) in
   let selector_expr = string_to_const ~loc:prelude_loc selector in
   let dl_expr = render_declaration_list mode sr.Style_rule.block in
-  let ident = Exp.ident ~loc:prelude_loc { txt = Lident "selector"; loc = prelude_loc } in
+  let lident =
+    match mode with
+    | Bs_css -> "selector"
+    | Bs_typed_css -> "select" in
+  let ident = Exp.ident ~loc:prelude_loc { txt = Lident lident; loc = prelude_loc } in
   Exp.apply ~loc:sr.Style_rule.loc ident [(Nolabel, selector_expr); (Nolabel, dl_expr)]
 
 and render_rule mode (r: Rule.t) : expression =
