@@ -692,8 +692,6 @@ and render_style_rule mode (sr: Style_rule.t) : expression =
       )
       ""
       (List.rev prelude) in
-      print_string "Selector: ";
-      print_endline selector;
   let selector_expr = string_to_const ~loc:prelude_loc selector in
   let dl_expr = render_declaration_list mode sr.Style_rule.block in
   let lident =
