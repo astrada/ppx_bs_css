@@ -20,15 +20,17 @@ let rec dump_component_value ppf (cv, loc) =
   | Uri s
   | Operator s
   | Delim s
-  | Hash s
   | Number s
   | Unicode_range s ->
     let pp = Fmt.string in
     pp ppf s
+  | Hash s ->
+    let pp = Fmt.(string |> prefix (const string "#")) in
+    pp ppf s
   | String s ->
     let pp = Fmt.(string |> prefix (const string "\"") |> suffix (const string "\"")) in
     pp ppf s
-  | Function ((name, name_loc), params) ->
+  | Function ((name, name_loc), (params, params_loc)) ->
     let pp_name = Fmt.string |> Fmt.(suffix (const string "(")) in
     let pp_params =
       Fmt.(list ~sep:(const string ", ") dump_component_value)
@@ -36,7 +38,7 @@ let rec dump_component_value ppf (cv, loc) =
     in
     let pp = Fmt.pair ~sep:Fmt.nop pp_name pp_params in
     pp ppf (name, params)
-  | Float_dimension (number, dimension)
+  | Float_dimension (number, dimension, _)
   | Dimension (number, dimension) ->
     let pp = Fmt.fmt "%s%s" in
     pp ppf number dimension

@@ -3,9 +3,9 @@ open Css_types
 
 let rec zip xs ys =
   match (xs, ys) with
-  | ([], []) -> []
+  | ([], _) -> []
+  | (_, []) -> []
   | (x :: xs, y :: ys) -> (x, y) :: (zip xs ys)
-  | _ -> failwith "zip"
 
 let eq_ast ast1 ast2 =
   let eq_list xs ys eq =
@@ -30,10 +30,11 @@ let eq_ast ast1 ast2 =
     | (Number x1, Number x2)
     | (Unicode_range x1, Unicode_range x2) ->
       x1 = x2
-    | (Float_dimension x1, Float_dimension x2)
+    | (Float_dimension x1, Float_dimension x2) ->
+      x1 = x2
     | (Dimension x1, Dimension x2) ->
       x1 = x2
-    | (Function ((n1, _), b1), Function ((n2, _), b2)) ->
+    | (Function ((n1, _), (b1, _)), Function ((n2, _), (b2, _))) ->
       n1 = n2 &&
       eq_list b1 b2 eq_component_value
     | _ -> false
@@ -169,7 +170,7 @@ let test_css_functions () =
                          (Component_value.Number "2", Location.none);
                          (Component_value.Delim ",", Location.none);
                          (Component_value.Number "3", Location.none);
-                        ])),
+                        ], Location.none)),
                     Location.none);
                   ],
                   Location.none);
@@ -200,7 +201,7 @@ let test_at_rule_page () =
          block = Brace_block.Declaration_list
              ([Declaration_list.Declaration
                  {Declaration.name = ("margin", Location.none);
-                  value = ([(Component_value.Float_dimension ("1", "cm"), Location.none)], Location.none);
+                  value = ([(Component_value.Float_dimension ("1", "cm", Length), Location.none)], Location.none);
                   important = (false, Location.none);
                   loc = Location.none;
                  };
@@ -294,7 +295,7 @@ let test_at_rule_media () =
             (Component_value.Paren_block (
                 [(Component_value.Ident "min-width", Location.none);
                  (Component_value.Delim ":", Location.none);
-                 (Component_value.Dimension ("900", "px"), Location.none);
+                 (Component_value.Float_dimension ("900", "px", Length), Location.none);
                 ]), Location.none);
            ],
            Location.none);
@@ -305,8 +306,8 @@ let test_at_rule_media () =
                     ([Declaration_list.Declaration
                         {Declaration.name = ("padding", Location.none);
                          value = (
-                           [(Component_value.Float_dimension ("1", "rem"), Location.none);
-                            (Component_value.Float_dimension ("3", "rem"), Location.none);
+                           [(Component_value.Float_dimension ("1", "rem", Length), Location.none);
+                            (Component_value.Float_dimension ("3", "rem", Length), Location.none);
                            ],
                            Location.none);
                          important = (false, Location.none);
@@ -356,7 +357,7 @@ let test_at_rule_supports () =
                      (Component_value.Paren_block (
                          [(Component_value.Ident "min-width", Location.none);
                           (Component_value.Delim ":", Location.none);
-                          (Component_value.Dimension ("900", "px"), Location.none);
+                          (Component_value.Float_dimension ("900", "px", Length), Location.none);
                          ]), Location.none);
                     ],
                     Location.none);
@@ -449,12 +450,12 @@ let test_at_rule_font_face () =
                     [(Component_value.Uri "\"/fonts/OpenSans-Regular-webfont.woff2\"", Location.none);
                      (Component_value.Function (
                          ("format", Location.none),
-                         ([(Component_value.String "woff2", Location.none)])), Location.none);
+                         ([(Component_value.String "woff2", Location.none)], Location.none)), Location.none);
                      (Component_value.Delim ",", Location.none);
                      (Component_value.Uri "\"/fonts/OpenSans-Regular-webfont.woff\"", Location.none);
                      (Component_value.Function (
                          ("format", Location.none),
-                         ([(Component_value.String "woff", Location.none)])), Location.none);
+                         ([(Component_value.String "woff", Location.none)], Location.none)), Location.none);
                     ], Location.none);
                   important = (false, Location.none);
                   loc = Location.none;
@@ -645,7 +646,7 @@ let test_at_rule_font_feature_values () =
   Alcotest.(check (testable Css_fmt_printer.dump_stylesheet eq_ast))
     "different CSS AST" expected_ast ast
 
-let test_selector () =
+let test_hover_selector () =
   let css =
     {|
 :hover {
@@ -659,6 +660,65 @@ let test_selector () =
         {Style_rule.prelude = (
             [(Component_value.Delim ":", Location.none);
              (Component_value.Ident "hover", Location.none);
+            ], Location.none);
+         block = (
+           [Declaration_list.Declaration
+              {Declaration.name = ("color", Location.none);
+               value = ([(Component_value.Ident "blue", Location.none)], Location.none);
+               important = (false, Location.none);
+               loc = Location.none;
+              };
+           ], Location.none);
+         loc = Location.none;
+        };
+     ], Location.none)
+  in
+  Alcotest.(check (testable Css_fmt_printer.dump_stylesheet eq_ast))
+    "different CSS AST" expected_ast ast
+
+let test_id_selector () =
+  let css =
+    {|
+#element {
+  color: blue
+}
+|}
+  in
+  let ast = parse_stylesheet css in
+  let expected_ast =
+    ([Rule.Style_rule
+        {Style_rule.prelude = (
+            [(Component_value.Hash "element", Location.none);
+            ], Location.none);
+         block = (
+           [Declaration_list.Declaration
+              {Declaration.name = ("color", Location.none);
+               value = ([(Component_value.Ident "blue", Location.none)], Location.none);
+               important = (false, Location.none);
+               loc = Location.none;
+              };
+           ], Location.none);
+         loc = Location.none;
+        };
+     ], Location.none)
+  in
+  Alcotest.(check (testable Css_fmt_printer.dump_stylesheet eq_ast))
+    "different CSS AST" expected_ast ast
+
+let test_class_selector () =
+  let css =
+    {|
+.element {
+  color: blue
+}
+|}
+  in
+  let ast = parse_stylesheet css in
+  let expected_ast =
+    ([Rule.Style_rule
+        {Style_rule.prelude = (
+            [(Component_value.Delim ".", Location.none);
+             (Component_value.Ident "element", Location.none);
             ], Location.none);
          block = (
            [Declaration_list.Declaration
@@ -690,5 +750,7 @@ let test_set =
    ("@viewport", `Quick, test_at_rule_viewport);
    ("@counter-style", `Quick, test_at_rule_counter_style);
    ("@font-feature-values", `Quick, test_at_rule_font_feature_values);
-   ("selector", `Quick, test_selector);
+   (":hover selector", `Quick, test_hover_selector);
+   ("id selector", `Quick, test_id_selector);
+   ("class selector", `Quick, test_class_selector);
   ]
