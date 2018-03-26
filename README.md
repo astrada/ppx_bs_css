@@ -17,11 +17,23 @@ Parses a CSS string and produces a declaration block compatible with
     # to run tests
     esy _build/default/test/test_suite.exe
 
+### Usage
+
+Add the PPX to your `bsconfig.json`:
+
+```json
+{
+    "ppx-flags": [
+        "\"ppx_bs_css.exe --as-ppx\""
+    ]
+}
+```
+
 ### Example
 
 Basic `bs-css` rules (ReasonML syntax):
 
-```ocaml
+```reason
 /* rules has type list(Css.rule) */
 let rules =
   let open Css;
@@ -40,7 +52,7 @@ let rules =
 
 `bs-css` rules with selectors (ReasonML syntax):
 
-```ocaml
+```reason
 /* rules has type list(Css.rule) */
 let css =
   let open Css;
@@ -59,7 +71,7 @@ let css =
 
 `bs-css` keyframes (ReasonML syntax):
 
-```ocaml
+```reason
 let bounces =
   let open Css;
   [%style
@@ -87,7 +99,7 @@ let stylesWithAnimation =
 
 Basic `typed-glamor` declaration block (ReasonML syntax):
 
-```ocaml
+```reason
 /* declarations has type list(TypedGlamor.Core.declaration) */
 let declarations =
   let open TypedGlamor;
@@ -106,4 +118,20 @@ let declarations =
 
 See also:
 [ppx_bs_css-examples](https://github.com/astrada/ppx_bs_css-examples).
+
+### What you get
+
+* Errors at compile time:
+
+![Color typo](doc/color_typo.png)
+
+* Merlin support:
+
+![Merlin type error](doc/merlin_type_error.png)
+
+![Merlin function info](doc/merlin_function.png)
+
+### What you don't get
+
+* Autocomplete
 
