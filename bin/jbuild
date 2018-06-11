@@ -1,0 +1,8 @@
+(jbuild_version 1)
+
+(executable
+ ((name bs_ppx_css)
+  (public_name bs-ppx-css)
+  (modules (bs_ppx_css))
+  (libraries (ppx_bs_css ocaml-migrate-parsetree))))
+
