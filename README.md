@@ -116,6 +116,26 @@ let declarations =
   ];
 ```
 
+Selectors also work with `typed-glamor`. They need the `[%css]` extension instead of `[%style]`:
+
+```reason
+/* Selectors */
+let _ = {
+  let open TypedGlamor;
+  [%css
+    {typed|
+      {
+        color: red;
+      }
+
+      :hover {
+        color: blue;
+      }
+    |typed}
+  ];
+};
+```
+
 See also:
 [ppx_bs_css-examples](https://github.com/astrada/ppx_bs_css-examples).
 
