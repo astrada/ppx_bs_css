@@ -1,20 +1,17 @@
 .PHONY: build clean test doc
 
 build:
-	jbuilder build @install
+	esy build
 
 test:
-	jbuilder runtest
+	esy jbuilder runtest
 
 install:
-	jbuilder install
+	esy jbuilder install
 
 uninstall:
-	jbuilder uninstall
+	esy jbuilder uninstall
 
 clean:
 	rm -rf _build
-
-doc:
-	jbuilder build @doc
 
