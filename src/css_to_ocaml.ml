@@ -648,6 +648,60 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
       Exp.apply ~loc:d_loc ident [Nolabel, arg]
   in
 
+  let render_font_family () =
+    let rcv = render_component_value mode in
+    let (vs, loc) = d.Declaration.value in
+    match mode with
+    | Bs_css ->
+      let arg =
+        let s =
+          List.fold_left
+            (fun s (v, loc) ->
+              match v with
+              | Ident x ->
+                s ^ (if String.length s > 0 then " " else "") ^ x
+              | String x ->
+                s ^ (if String.length s > 0 then " " else "") ^ "\"" ^ x ^ "\""
+              | Delim ("," as x) ->
+                s ^ x
+              | _ ->
+                grammar_error loc "Unexpected font-family value"
+            )
+            ""
+            vs
+        in
+        rcv ((String s), loc)
+      in
+      let ident =
+        Exp.ident ~loc:name_loc { txt = Lident "fontFamily"; loc = name_loc } in
+      Exp.apply ~loc:name_loc ident [(Nolabel, arg)]
+    | Bs_typed_css ->
+      let font_family_args (params, _) =
+        let s =
+          List.fold_left
+            (fun s (v, loc) ->
+              match v with
+              | Ident x
+              | String x ->
+                s ^ (if String.length s > 0 then " " else "") ^ x
+              | _ ->
+                grammar_error loc "Unexpected font-family value"
+            )
+            ""
+            params
+        in
+        rcv ((String s), loc)
+      in
+      let grouped_params = group_params vs in
+      let args =
+        List.rev_map
+        (fun params -> font_family_args params)
+        grouped_params in
+      let ident =
+        Exp.ident ~loc:name_loc { txt = Lident "fontFamilies"; loc = name_loc } in
+      Exp.apply ~loc:name_loc ident [(Nolabel, list_to_expr name_loc args)]
+  in
+
   match name with
   | "animation" when mode = Bs_css ->
     render_animation ()
@@ -659,6 +713,8 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
     render_transform ()
   | "transition" when mode = Bs_css ->
     render_transition ()
+  | "font-family" ->
+    render_font_family ()
   | _ ->
     render_standard_declaration ()
 
