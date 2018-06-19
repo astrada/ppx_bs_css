@@ -649,7 +649,6 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
   in
 
   let render_font_family () =
-    let rcv = render_component_value mode in
     let (vs, loc) = d.Declaration.value in
     match mode with
     | Bs_css ->
@@ -702,6 +701,27 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
       Exp.apply ~loc:name_loc ident [(Nolabel, list_to_expr name_loc args)]
   in
 
+  let render_z_index () =
+    let (vs, loc) = d.Declaration.value in
+    let arg =
+      if List.length vs = 1 then
+        let ((v, loc) as c) = List.hd vs in
+        match v with
+        | Ident _ -> rcv c
+        | Number _ ->
+          let ident =
+            Exp.ident ~loc:name_loc { txt = Lident "int"; loc = loc } in
+          Exp.apply ~loc:loc ident [(Nolabel, rcv c)]
+        | _ ->
+          grammar_error loc "Unexpected z-index value"
+      else
+        grammar_error loc "z-index should have a single value"
+    in
+    let ident =
+      Exp.ident ~loc:name_loc { txt = Lident "zIndex"; loc = name_loc } in
+    Exp.apply ~loc:name_loc ident [(Nolabel, arg)]
+  in
+
   match name with
   | "animation" when mode = Bs_css ->
     render_animation ()
@@ -715,6 +735,8 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
     render_transition ()
   | "font-family" ->
     render_font_family ()
+  | "z-index" when mode = Bs_typed_css ->
+    render_z_index ()
   | _ ->
     render_standard_declaration ()
 
