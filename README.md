@@ -7,6 +7,11 @@ Parses a CSS string and produces a declaration block compatible with
 [bs-css](https://github.com/SentiaAnalytics/bs-css), and
 [typed-css-core](https://github.com/glennsl/bs-typed-css/tree/master/packages/core).
 
+### Quick start
+
+[ppx_bs_css_example](https://github.com/jchavarri/ppx_bs_css_example) by [jchavarri](https://github.com/jchavarri) provides
+an easy to use template project that shows how to configure an [esy](https://esy.sh/) project that depends on `ppx_bs_css`.
+
 ### Build
 
     npm install -g esy
@@ -29,7 +34,7 @@ Add the PPX to your `bsconfig.json`:
 }
 ```
 
-### Example
+### Examples
 
 Basic `bs-css` rules (ReasonML syntax):
 
