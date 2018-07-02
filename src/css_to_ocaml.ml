@@ -81,7 +81,10 @@ let is_variant mode ident =
       | "small-caps"
       (* step-timing-function *)
       | "start"
-      | "end" -> true
+      | "end"
+      (* display *)
+      | "flex"
+      | "inline-flex" -> true
       | _ -> false
     end
   | Bs_typed_css -> false
