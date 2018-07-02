@@ -722,6 +722,25 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
     Exp.apply ~loc:name_loc ident [(Nolabel, arg)]
   in
 
+  let render_flex_grow_shrink () =
+    let name = to_caml_case name in
+    let (vs, loc) = d.Declaration.value in
+    let arg =
+      if List.length vs = 1 then
+        let ((v, loc) as c) = List.hd vs in
+        match v with
+        | Number n ->
+          Exp.constant ~loc (number_to_const n)
+        | _ ->
+          grammar_error loc ("Unexpected " ^ name ^ " value")
+      else
+        grammar_error loc (name ^ " should have a single value")
+    in
+    let ident =
+      Exp.ident ~loc:name_loc { txt = Lident name; loc = name_loc } in
+    Exp.apply ~loc:name_loc ident [(Nolabel, arg)]
+  in
+
   match name with
   | "animation" when mode = Bs_css ->
     render_animation ()
@@ -737,6 +756,9 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
     render_font_family ()
   | "z-index" when mode = Bs_typed_css ->
     render_z_index ()
+  | "flex-grow"
+  | "flex-shrink" when mode = Bs_css ->
+    render_flex_grow_shrink ()
   | _ ->
     render_standard_declaration ()
 
