@@ -18,12 +18,7 @@ let is_overloaded mode declaration =
      E.g.: margin: 1em 2px -> margin2 em(1.) px(2.)
   *)
   match mode with
-  | Bs_css ->
-    begin match declaration with
-      | "margin"
-      | "padding" -> true
-      | _ -> false
-    end
+  | Bs_css -> false
   | Bs_typed_css -> true
 
 let is_variant mode ident =
@@ -744,6 +739,36 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
     Exp.apply ~loc:name_loc ident [(Nolabel, arg)]
   in
 
+  let render_padding_margin () =
+    let name = to_caml_case name in
+    let (vs,_) = d.Declaration.value in
+    let parameter_count = List.length vs in
+    let name =
+        if parameter_count > 1
+        then name ^ (string_of_int parameter_count)
+        else name 
+      in
+    let ident =
+      Exp.ident ~loc:name_loc
+        { txt = Lident (name); loc = name_loc } in
+    let args = List.map (fun v  -> rcv v) vs in
+    Exp.apply ~loc:d_loc ident (List.mapi (
+      (fun i a ->
+        match (parameter_count, i) with
+        | (2,0) -> (Labelled ("v"), a)
+        | (2,1) -> (Labelled ("h"), a)
+        | (3,0) -> (Labelled ("top"), a)
+        | (3,1) -> (Labelled ("h"), a)
+        | (3,2) -> (Labelled ("bottom"), a)
+        | (4,0) -> (Labelled ("top"), a)
+        | (4,1) -> (Labelled ("right"), a)
+        | (4,2) -> (Labelled ("bottom"), a)
+        | (4,3) -> (Labelled ("left"), a)
+        | _ -> (Nolabel, a)
+      )
+    ) args)
+    in
+
   match name with
   | "animation" when mode = Bs_css ->
     render_animation ()
@@ -762,6 +787,9 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
   | "flex-grow"
   | "flex-shrink" when mode = Bs_css ->
     render_flex_grow_shrink ()
+  | "padding"
+  | "margin" when mode = Bs_css ->
+    render_padding_margin ()
   | _ ->
     render_standard_declaration ()
 
