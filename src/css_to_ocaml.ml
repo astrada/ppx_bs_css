@@ -24,7 +24,11 @@ let is_overloaded mode declaration =
       | "padding" -> true
       | _ -> false
     end
-  | Bs_typed_css -> true
+  | Bs_typed_css -> 
+    begin match declaration with
+      | "unsafe" -> false
+      | _ -> true
+    end
 
 let is_variant mode ident =
   (* bs-css uses polymorphic variants to enumerate values. Some of them
