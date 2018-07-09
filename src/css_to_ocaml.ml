@@ -19,7 +19,11 @@ let is_overloaded mode declaration =
   *)
   match mode with
   | Bs_css -> false
-  | Bs_typed_css -> true
+  | Bs_typed_css -> 
+    begin match declaration with
+      | "unsafe" -> false
+      | _ -> true
+    end
 
 let is_variant mode ident =
   (* bs-css uses polymorphic variants to enumerate values. Some of them
