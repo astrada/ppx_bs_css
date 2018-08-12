@@ -29,7 +29,7 @@ Add the PPX to your `bsconfig.json`:
 ```json
 {
     "ppx-flags": [
-        "\"ppx_bs_css.exe --as-ppx\""
+        "ppx_bs_css.exe --as-ppx"
     ]
 }
 ```
