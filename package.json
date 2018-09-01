@@ -4,23 +4,26 @@
   "description": "CSS syntax extension for BuckleScript/ReasonML",
   "license": "MIT",
   "esy": {
-    "build": ["jbuilder build"],
-    "install": ["esy-installer"],
-    "buildsInSource": "_build"
+    "build": ["dune build -p #{self.name}"],
+    "release": {
+      "releasedBinaries": [
+        "ppx_bs_css"
+      ]
+    }
   },
   "dependencies": {
-    "@esy-ocaml/esy-installer": "^0.0.0",
-    "@opam/alcotest": "^0.8.1",
-    "@opam/jbuilder": "^1.0.0-beta16",
+    "@opam/dune": "*",
+    "@opam/alcotest": "^0.8.3",
     "@opam/menhir": "20171222",
-    "@opam/ocaml-migrate-parsetree": "^1.0.7",
-    "@opam/sedlex": "^1.0.0-beta14"
-  },
-  "peerDependencies": {
+    "@opam/ocaml-migrate-parsetree": "^1.0.11",
+    "@opam/sedlex": "^1.99.4",
     "ocaml": "~4.2.3"
   },
   "devDependencies": {
     "@esy-ocaml/merlin": "^3.0.5",
     "ocaml": "~4.2.3"
+  },
+  "resolutions": {
+    "@opam/ppx_tools_versioned": "5.2"
   }
 }

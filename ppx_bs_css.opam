@@ -6,10 +6,10 @@ homepage: "https://github.com/astrada/ppx_bs_css"
 dev-repo: "https://github.com/astrada/ppx_bs_css.git"
 bug-reports: "https://github.com/astrada/ppx_bs_css/issues"
 build: [
-  ["jbuilder" "build" "-p" name "-j" jobs]
+  ["dune" "build" "-p" name "-j" jobs]
 ]
 depends: [
-  "jbuilder"
+  "dune" {build}
   "ocaml-migrate-parsetree"
   "menhir"
   "sedlex"

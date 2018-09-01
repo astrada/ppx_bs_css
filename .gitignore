@@ -1,15 +1,11 @@
-*.swp
-npm-debug.log
-yarn-error.log
 .merlin
-ppx_bs_css.install
+node_modules/
 _build
-_esybuild
-_esyinstall
 _release
 *.byte
 *.native
-node_modules
+*.install
+*.swp
 
 test_bs/lib
 test_bs/.bsb.lock
