@@ -288,7 +288,7 @@ let parse buf p =
     !last_token
   in
   try MenhirLib.Convert.Simplified.traditional2revised p next_token with
-  | LexingError (pos, s) as e -> raise e
+  | LexingError _ as e -> raise e
   | _ -> raise (ParseError !last_token)
 
 let parse_string ?container_lnum ?pos s p =
