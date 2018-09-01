@@ -138,7 +138,7 @@ let group_params params =
     match xs with
     | [] -> (accu, loc), []
     | (Component_value.Delim ",", _) :: rest -> (accu, loc), rest
-    | (cv, cv_loc) as hd :: rest ->
+    | (_, cv_loc) as hd :: rest ->
       let loc =
         let loc_start =
           if loc = Location.none then cv_loc.Location.loc_start
@@ -243,7 +243,7 @@ let is_color component_value =
   | _ -> false
 
 let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : expression =
-  let render_block start_char end_char cs =
+  let render_block start_char _ _ =
     grammar_error loc ("Unsupported " ^ start_char ^ "-block")
   in
 
@@ -285,9 +285,9 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
       let color_stops_to_expr_list color_stop_params =
         List.rev_map
           (function
-            | ([(color, start_loc) as color_cv;
+            | ([(_, start_loc) as color_cv;
                 (Percentage perc, end_loc)], _)
-            | ([(color, start_loc) as color_cv;
+            | ([(_, start_loc) as color_cv;
                 (Number ("0" as perc), end_loc)], _) ->
               let color_expr = rcv color_cv in
               let perc_expr = Exp.constant ~loc:end_loc (number_to_const perc) in
@@ -373,9 +373,9 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
     let ident = Exp.ident ~loc { txt = Lident "url"; loc } in
     let arg = string_to_const ~loc s in
     Exp.apply ~loc ident [(Nolabel, arg)]
-  | Operator s ->
+  | Operator _ ->
     grammar_error loc "Unsupported operator"
-  | Delim s ->
+  | Delim _ ->
     grammar_error loc "Unsupported delimiter"
   | Hash s ->
     let ident = Exp.ident ~loc { txt = Lident "hex"; loc } in
@@ -384,7 +384,7 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
   | Number s ->
     if s = "0" then Exp.ident ~loc { txt = Lident "zero"; loc }
     else Exp.constant ~loc (number_to_const s)
-  | Unicode_range s ->
+  | Unicode_range _ ->
     grammar_error loc "Unsupported unicode range"
   | Function (f, params) ->
     render_function f params
@@ -554,7 +554,7 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
 
   (* https://developer.mozilla.org/en-US/docs/Web/CSS/text-shadow *)
   let render_text_shadow () =
-    let text_shadow_args params loc =
+    let text_shadow_args params _ =
       List.fold_left
         (fun args ((v, loc) as cv) ->
            if is_ident "inset" v then
@@ -590,7 +590,7 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
     let render_property property loc =
       Exp.constant ~loc (Const.string property)
     in
-    let transition_args (grouped_param, loc) =
+    let transition_args (grouped_param, _) =
       List.fold_left
         (fun args ((v, loc) as cv) ->
            if is_time v then
@@ -729,7 +729,7 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
     let (vs, loc) = d.Declaration.value in
     let arg =
       if List.length vs = 1 then
-        let ((v, loc) as c) = List.hd vs in
+        let (v, loc) = List.hd vs in
         match v with
         | Number n ->
           Exp.constant ~loc (number_to_const n)
@@ -743,35 +743,35 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
     Exp.apply ~loc:name_loc ident [(Nolabel, arg)]
   in
 
-  let render_padding_margin () =
+  let render_with_labels labels =
     let name = to_caml_case name in
     let (vs,_) = d.Declaration.value in
     let parameter_count = List.length vs in
     let name =
-        if parameter_count > 1
-        then name ^ (string_of_int parameter_count)
-        else name 
-      in
+      if parameter_count > 1
+      then name ^ (string_of_int parameter_count)
+      else name 
+    in
     let ident =
       Exp.ident ~loc:name_loc
         { txt = Lident (name); loc = name_loc } in
     let args = List.map (fun v  -> rcv v) vs in
     Exp.apply ~loc:d_loc ident (List.mapi (
       (fun i a ->
-        match (parameter_count, i) with
-        | (2,0) -> (Labelled ("v"), a)
-        | (2,1) -> (Labelled ("h"), a)
-        | (3,0) -> (Labelled ("top"), a)
-        | (3,1) -> (Labelled ("h"), a)
-        | (3,2) -> (Labelled ("bottom"), a)
-        | (4,0) -> (Labelled ("top"), a)
-        | (4,1) -> (Labelled ("right"), a)
-        | (4,2) -> (Labelled ("bottom"), a)
-        | (4,3) -> (Labelled ("left"), a)
-        | _ -> (Nolabel, a)
+        try
+          let (_, matching_label) =
+            List.find
+              (fun ((params, param), _) ->
+                 params = parameter_count &&
+                 param = i
+              )
+              labels
+          in
+          (Labelled matching_label, a)
+        with Not_found -> (Nolabel, a)
       )
     ) args)
-    in
+  in
 
   match name with
   | "animation" when mode = Bs_css ->
@@ -792,8 +792,37 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
   | "flex-shrink" when mode = Bs_css ->
     render_flex_grow_shrink ()
   | "padding"
-  | "margin" when mode = Bs_css ->
-    render_padding_margin ()
+  | "margin" ->
+    render_with_labels [
+      ((2, 0), "v");
+      ((2, 1), "h");
+      ((3, 0), "top");
+      ((3, 1), "h");
+      ((3, 2), "bottom");
+      ((4, 0), "top");
+      ((4, 1), "right");
+      ((4, 2), "bottom");
+      ((4, 3), "left");
+    ]
+  | "border-top-right-radius"
+  | "border-top-left-radius"
+  | "border-bottom-right-radius"
+  | "border-bottom-left-radius" when mode = Bs_typed_css ->
+    render_with_labels [
+      ((2, 0), "v");
+      ((2, 1), "h");
+    ]
+  | "background-position"
+  | "transform-origin" when mode = Bs_typed_css ->
+    render_with_labels [
+      ((2, 0), "h");
+      ((2, 1), "v");
+    ]
+  | "flex" when mode = Bs_typed_css ->
+    render_with_labels [
+      ((3, 0), "grow");
+      ((3, 1), "shrink");
+    ]
   | _ ->
     render_standard_declaration ()
 
@@ -847,11 +876,12 @@ and render_stylesheet mode ((rs, loc): Stylesheet.t) : expression =
       (fun rule ->
          match rule with
          | Rule.Style_rule { Style_rule.prelude = ([], _);
-                             block = (ds, _); } ->
+                             block = (ds, _);
+                             loc = _;
+                           } ->
            render_declarations mode ds
-         | Rule.Style_rule sr ->
-           [render_rule mode rule]
-         | Rule.At_rule ar ->
+         | Rule.Style_rule _
+         | Rule.At_rule _ ->
            [render_rule mode rule]
       )
       rs |> List.concat in
