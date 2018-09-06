@@ -540,30 +540,32 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
 
   (* https://developer.mozilla.org/en-US/docs/Web/CSS/box-shadow *)
   let render_box_shadow () =
+    let box_shadow_args args ((v, loc) as cv) =
+      if is_ident "inset" v then
+        (Labelled "inset",
+         (Exp.construct ~loc
+            { txt = Lident "true"; loc }
+            None)) :: args
+      else if is_length v then
+        if not (List.exists (function (Labelled "x", _) -> true | _ -> false) args) then
+          (Labelled "x", rcv cv) :: args
+        else if not (List.exists (function (Labelled "y", _) -> true | _ -> false) args) then
+          (Labelled "y", rcv cv) :: args
+        else if not (List.exists (function (Labelled "blur", _) -> true | _ -> false) args) then
+          (Labelled "blur", rcv cv) :: args
+        else if not (List.exists (function (Labelled "spread", _) -> true | _ -> false) args) then
+          (Labelled "spread", rcv cv) :: args
+        else grammar_error loc "box-shadow cannot have more than 4 length values"
+      else if is_color v then
+        (Nolabel, rcv cv) :: args
+      else grammar_error loc "Unexpected box-shadow value"
+    in
+    let n = if mode = Bs_css then "boxShadow" else "shadow" in
     let box_shadow_ident =
-      Exp.ident ~loc:name_loc { txt = Lident "boxShadow"; loc = name_loc } in
+      Exp.ident ~loc:name_loc { txt = Lident n; loc = name_loc } in
     let box_shadow_args (grouped_param, _) =
       List.fold_left
-        (fun args ((v, loc) as cv) ->
-           if is_ident "inset" v then
-             (Labelled "inset",
-              (Exp.construct ~loc
-                 { txt = Lident "true"; loc }
-                 None)) :: args
-           else if is_length v then
-             if not (List.exists (function (Labelled "x", _) -> true | _ -> false) args) then
-               (Labelled "x", rcv cv) :: args
-             else if not (List.exists (function (Labelled "y", _) -> true | _ -> false) args) then
-               (Labelled "y", rcv cv) :: args
-             else if not (List.exists (function (Labelled "blur", _) -> true | _ -> false) args) then
-               (Labelled "blur", rcv cv) :: args
-             else if not (List.exists (function (Labelled "spread", _) -> true | _ -> false) args) then
-               (Labelled "spread", rcv cv) :: args
-             else grammar_error loc "box-shadow cannot have more than 4 length values"
-           else if is_color v then
-             (Nolabel, rcv cv) :: args
-           else grammar_error loc "Unexpected box-shadow value"
-        )
+        box_shadow_args
         []
         grouped_param
     in
@@ -828,7 +830,7 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
   match name with
   | "animation" when mode = Bs_css ->
     render_animation ()
-  | "box-shadow" when mode = Bs_css ->
+  | "box-shadow" ->
     render_box_shadow ()
   | "text-shadow" when mode = Bs_css ->
     render_text_shadow ()
