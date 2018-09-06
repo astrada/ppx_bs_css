@@ -242,6 +242,35 @@ let is_color component_value =
   | Ident _ -> true
   | _ -> false
 
+let is_line_width component_value =
+  let open Component_value in
+  match component_value with
+  | Ident i -> begin match i with
+      | "thin"
+      | "medium"
+      | "thick" -> true
+      | _ -> false
+    end
+  | _ -> is_length component_value
+
+let is_line_style component_value =
+  let open Component_value in
+  match component_value with
+  | Ident i -> begin match i with
+      | "none"
+      | "hidden"
+      | "dotted"
+      | "dashed"
+      | "solid"
+      | "double"
+      | "groove"
+      | "ridge"
+      | "inset"
+      | "outset" -> true
+      | _ -> false
+    end
+  | _ -> false
+
 let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : expression =
   let render_block start_char _ _ =
     grammar_error loc ("Unsupported " ^ start_char ^ "-block")
@@ -743,6 +772,29 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
     Exp.apply ~loc:name_loc ident [(Nolabel, arg)]
   in
 
+  let render_border_outline_2 () =
+    let border_outline_args params _ =
+      List.fold_left
+        (fun args ((v, loc) as cv) ->
+           if is_line_width v then
+             (Labelled "width", rcv cv) :: args
+           else if is_line_style v then
+             (Nolabel, rcv cv) :: args
+           else if is_color v then
+             (Labelled "color", rcv cv) :: args
+           else grammar_error loc ("Unexpected " ^ name ^ " value")
+        )
+        []
+        params
+    in
+    let (params, loc) = d.Declaration.value in
+    let args = border_outline_args params loc in
+    let name = to_caml_case name ^ "2" in
+    let ident =
+      Exp.ident ~loc:name_loc { txt = Lident name; loc = name_loc } in
+    Exp.apply ident args
+  in
+
   let render_with_labels labels =
     let name = to_caml_case name in
     let (vs,_) = d.Declaration.value in
@@ -823,6 +875,10 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
       ((3, 0), "grow");
       ((3, 1), "shrink");
     ]
+  | "border"
+  | "outline" when mode = Bs_typed_css &&
+                   List.length (fst d.Declaration.value) = 2 ->
+    render_border_outline_2 ()
   | _ ->
     render_standard_declaration ()
 

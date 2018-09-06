@@ -17,6 +17,9 @@ let test = [%style {typed|
   transform-origin: 1px 2px;
 
   flex: 1.0 2.0 100px;
+
+  outline: solid 100px;
+  border: red dotted;
 |typed}]
 
 let equal = [
@@ -36,6 +39,9 @@ let equal = [
   transformOrigin2 ~h:(px 1) ~v:(px 2);
 
   flex3 ~grow:1.0 ~shrink:2.0 (px 100);
+
+  outline2 ~width:(px 100) solid;
+  border2 ~color:red dotted;
 ]
 
 let _ = assert (test = equal)
