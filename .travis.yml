@@ -15,7 +15,9 @@ before_install:
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then export TARGET_NAME=linux-x64; fi
 
 before_script:
-  - IS_PPX_BS_CSS_CI=true yarn
+  - yarn global add esy@next
+  - IS_PPX_BS_CSS_CI=true esy install
+  - IS_PPX_BS_CSS_CI=true esy build
   - ./ci/before_script_$TRAVIS_OS_NAME.sh
 
 script:
