@@ -58,7 +58,7 @@ jobs:
         - bash -e ci/download_binaries.sh
       deploy:
         provider: npm
-        email: mhallin@fastmail.com
+        email: jakub.korzeniowski@gmail.com
         api_key:
           secure: $NPM_API_KEY
         on:

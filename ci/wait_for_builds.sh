@@ -6,7 +6,7 @@ if [ -z "$TRAVIS_TAG" ]; then
 fi
 
 CURL="curl -ifs"
-BASE_URL=https://github.com/mhallin/ppx_bs_css/releases/download/$TRAVIS_TAG/ppx_bs_css-
+BASE_URL=https://github.com/astrada/ppx_bs_css/releases/download/$TRAVIS_TAG/ppx_bs_css-
 START_TIME=$(date "+%s")
 
 ## Wait at most 30 minutes for all platform binaries to be ready
