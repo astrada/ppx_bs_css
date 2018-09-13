@@ -11,6 +11,9 @@
       ]
     }
   },
+  "scripts": {
+    "postinstall": "node copyPlatformBinaryInPlace.js"
+  },
   "dependencies": {
     "@opam/dune": "*",
     "@opam/alcotest": "^0.8.3",
