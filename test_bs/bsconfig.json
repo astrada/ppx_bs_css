@@ -1,5 +1,5 @@
 {
-  "name": "graphql_ppx_test",
+  "name": "ppx_bs_css_test",
   "sources": ["issues"],
   "bs-dependencies": ["bs-css", "bs-typed-glamor"],
   "ppx-flags": ["../_build/default/.ppx/ppx_bs_css/ppx.exe --as-ppx"],

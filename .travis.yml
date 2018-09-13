@@ -15,20 +15,20 @@ before_install:
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then export TARGET_NAME=linux-x64; fi
 
 before_script:
-  - IS_GRAPHQL_PPX_CI=true yarn
+  - IS_PPX_BS_CSS_CI=true yarn
   - ./ci/before_script_$TRAVIS_OS_NAME.sh
 
 script:
   - ./ci/build_script_$TRAVIS_OS_NAME.sh
   - make only-test
   - NODE_ENV=production make only-test
-  - mv graphql_ppx.exe graphql_ppx-$TARGET_NAME.exe
+  - mv ppx_bs_css.exe ppx_bs_css-$TARGET_NAME.exe
 
 deploy:
   provider: releases
   skip_cleanup: true
   file_glob: true
-  file: graphql_ppx-*.exe
+  file: ppx_bs_css-*.exe
   api_key:
     secure: $GITHUB_API_KEY
   on:
