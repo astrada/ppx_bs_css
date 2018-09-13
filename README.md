@@ -20,7 +20,7 @@ an easy to use template project that shows how to configure an [esy](https://esy
     # to build tests
     esy jbuilder build test/test_suite.exe
     # to run tests
-    esy _build/default/test/test_suite.exe
+    esy ./_build/default/test/test_suite.exe
 
 ### Usage
 
