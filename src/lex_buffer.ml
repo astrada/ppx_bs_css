@@ -64,8 +64,11 @@ let cr = Char.code '\r'
 let next lexbuf =
   let c = Sedlexing.next lexbuf.buf in
   let pos = next_loc lexbuf in
-  let ch = try Some (Char.chr c) with Invalid_argument _ -> None in
-  ( match ch with
+  let ch = match c with
+    | None -> None
+    | Some c ->
+      try Some (Uchar.to_char c) with Invalid_argument _ -> None in
+  begin match ch with
     | Some '\r' ->
       lexbuf.pos
       <- {pos with pos_bol= pos.pos_cnum - 1; pos_lnum= pos.pos_lnum + 1}
@@ -73,8 +76,12 @@ let next lexbuf =
       lexbuf.pos
       <- {pos with pos_bol= pos.pos_cnum - 1; pos_lnum= pos.pos_lnum + 1}
     | Some '\n' -> ()
-    | _ -> lexbuf.pos <- pos ) ;
-  lexbuf.last_char <- Some c ;
+    | _ -> lexbuf.pos <- pos
+  end;
+  begin match c with
+    | None -> lexbuf.last_char <- None
+    | Some c -> lexbuf.last_char <- Some (Uchar.to_int c)
+  end;
   c
 
 

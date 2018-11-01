@@ -1,7 +1,7 @@
 open Ppx_bs_css
 open Css_types
 
-let rec dump_component_value ppf (cv, loc) =
+let rec dump_component_value ppf (cv, _) =
   let dump_block start_char end_char cs =
     let pp = Fmt.(list ~sep:(const string " ") dump_component_value) in
     let pp =
@@ -30,7 +30,7 @@ let rec dump_component_value ppf (cv, loc) =
   | String s ->
     let pp = Fmt.(string |> prefix (const string "\"") |> suffix (const string "\"")) in
     pp ppf s
-  | Function ((name, name_loc), (params, params_loc)) ->
+  | Function ((name, _), (params, _)) ->
     let pp_name = Fmt.string |> Fmt.(suffix (const string "(")) in
     let pp_params =
       Fmt.(list ~sep:(const string ", ") dump_component_value)
@@ -64,8 +64,8 @@ and dump_at_rule ppf (ar: At_rule.t) =
            |> suffix cut
            |> suffix (const string "}")) ppf s
   in
-  let (name, name_loc) = ar.At_rule.name in
-  let (prelude, prelude_loc) = ar.At_rule.prelude in
+  let (name, _) = ar.At_rule.name in
+  let (prelude, _) = ar.At_rule.prelude in
   Fmt.fmt "%a %a %a" ppf pp_name name
     pp_prelude prelude pp_block ()
 
@@ -77,12 +77,12 @@ and dump_declaration ppf (d: Declaration.t) =
     | (false, _) -> Fmt.nop
     | (true, _) -> Fmt.(const string " !important")
   in
-  let (name, name_loc) = d.Declaration.name in
-  let (value, value_loc) = d.Declaration.value in
+  let (name, _) = d.Declaration.name in
+  let (value, _) = d.Declaration.value in
   Fmt.fmt "%a: %a%a" ppf pp_name name
     pp_values value pp_important ()
 
-and dump_declaration_list ppf (dl, dl_loc) : unit =
+and dump_declaration_list ppf (dl, _) : unit =
   let pp_elem ppf d =
     match d with
     | Declaration_list.Declaration d -> dump_declaration ppf d
@@ -96,7 +96,7 @@ and dump_declaration_list ppf (dl, dl_loc) : unit =
 
 and dump_style_rule ppf (sr: Style_rule.t) =
   let pp_prelude = Fmt.(list ~sep:(const string " ") dump_component_value) in
-  let (prelude, prelude_loc) = sr.Style_rule.prelude in
+  let (prelude, _) = sr.Style_rule.prelude in
   Fmt.fmt "%a {@,%a@,}@," ppf pp_prelude
     prelude dump_declaration_list
     sr.Style_rule.block
@@ -106,6 +106,6 @@ and dump_rule ppf (r: Rule.t) =
   | Rule.Style_rule sr -> dump_style_rule ppf sr
   | Rule.At_rule ar -> dump_at_rule ppf ar
 
-and dump_stylesheet ppf (s, s_loc) =
+and dump_stylesheet ppf (s, _) =
   let pp = Fmt.(vbox (list dump_rule)) in
   pp ppf s

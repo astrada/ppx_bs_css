@@ -18,9 +18,9 @@ an easy to use template project that shows how to configure an [esy](https://esy
     esy install
     esy build
     # to build tests
-    esy jbuilder build test/test_suite.exe
+    esy dune build test/test_suite.exe
     # to run tests
-    esy ./_build/default/test/test_suite.exe
+    esy ./_esy/default/build/default/test/test_suite.exe
 
 ### Usage
 

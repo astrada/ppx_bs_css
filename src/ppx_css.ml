@@ -1,16 +1,14 @@
 open Migrate_parsetree
 open Ast_406
 open Ast_mapper
-open Ast_helper
 open Asttypes
 open Parsetree
-open Longident
 
-let rec expr mapper e =
+let expr mapper e =
   match e.pexp_desc with
   | Pexp_extension
-      ({ txt; loc },
-       PStr [{ pstr_desc = Pstr_eval (e, _) }]) when txt = "style" || txt = "css" ->
+      ({ txt; loc; _ },
+       PStr [{ pstr_desc = Pstr_eval (e, _); _ }]) when txt = "style" || txt = "css" ->
     begin match e.pexp_desc with
       | Pexp_constant Pconst_string (str, delim) ->
         let loc_start =

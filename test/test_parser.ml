@@ -14,7 +14,7 @@ let eq_ast ast1 ast2 =
       true
       (zip xs ys)
   in
-  let rec eq_component_value (cv1, cv1_loc) (cv2, cv2_loc) =
+  let rec eq_component_value (cv1, _) (cv2, _) =
     let open Component_value in
     match (cv1, cv2) with
     | (Paren_block b1, Paren_block b2)
@@ -63,7 +63,7 @@ let eq_ast ast1 ast2 =
     (n1 = n2) &&
     (eq_list v1 v2 eq_component_value) &&
     (i1 = i2)
-  and eq_declaration_list (dl1, dl1_loc) (dl2, dl2_loc) =
+  and eq_declaration_list (dl1, _) (dl2, _) =
     let eq_kind k1 k2 =
       match (k1, k2) with
       | (Declaration_list.Declaration d1, Declaration_list.Declaration d2) ->
@@ -83,14 +83,14 @@ let eq_ast ast1 ast2 =
     | (Rule.Style_rule r1, Rule.Style_rule r2) -> eq_style_rule r1 r2
     | (Rule.At_rule r1, Rule.At_rule r2) -> eq_at_rule r1 r2
     | _ -> false
-  and eq_stylesheet (st1, st1_loc) (st2, st2_loc) =
+  and eq_stylesheet (st1, _) (st2, _) =
     eq_list st1 st2 eq_rule
   in
   eq_stylesheet ast1 ast2
 
 let parse_stylesheet css =
   try Css_lexer.parse_string css Css_parser.stylesheet with
-  | Css_lexer.LexingError (pos, msg) ->
+  | Css_lexer.LexingError (pos, _) ->
     failwith
       ("Lexing error at: " ^ Css_lexer.position_to_string pos)
   | Css_lexer.ParseError (token, start, finish) ->
