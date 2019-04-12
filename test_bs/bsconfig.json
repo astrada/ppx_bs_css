@@ -2,7 +2,7 @@
   "name": "graphql_ppx_test",
   "sources": ["issues"],
   "bs-dependencies": ["bs-css", "bs-typed-glamor"],
-  "ppx-flags": ["../_esy/default/build/default/.ppx/ppx_bs_css/ppx.exe --as-ppx"],
+  "ppx-flags": ["../_build/default/bin/bin.exe"],
   "refmt": 3,
   "bsc-flags": ["-bs-super-errors"]
 }
