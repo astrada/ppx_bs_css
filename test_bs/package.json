@@ -4,6 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "start": "bsb -clean-world -make-world -w",
+    "build": "bsb -clean-world -make-world",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
