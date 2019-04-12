@@ -9,18 +9,15 @@ Parses a CSS string and produces a declaration block compatible with
 
 ### Quick start
 
-[ppx_bs_css_example](https://github.com/jchavarri/ppx_bs_css_example) by [jchavarri](https://github.com/jchavarri) provides
-an easy to use template project that shows how to configure an [esy](https://esy.sh/) project that depends on `ppx_bs_css`.
+```
+yarn add -D ppx_bs_css
+```
 
-### Build
+or 
 
-    npm install -g esy
-    esy install
-    esy build
-    # to build tests
-    esy dune build test/test_suite.exe
-    # to run tests
-    esy ./_esy/default/build/default/test/test_suite.exe
+```
+npm i -D ppx_bs_css
+```
 
 ### Usage
 
@@ -29,7 +26,7 @@ Add the PPX to your `bsconfig.json`:
 ```json
 {
     "ppx-flags": [
-        "ppx_bs_css.exe --as-ppx"
+        "ppx_bs_css/ppx"
     ]
 }
 ```
@@ -159,4 +156,18 @@ See also:
 ### What you don't get
 
 * Autocomplete
+
+### Development
+
+    npm install -g esy
+    esy install
+    esy build
+    # to build tests
+    esy dune build test/test_suite.exe
+    # to run tests
+    esy ./_esy/default/build/default/test/test_suite.exe
+    # to build test_bs
+    cd test_bs && yarn install
+    # to run test_bs
+    yarn build
 
