@@ -1,4 +1,3 @@
-open Ppx_bs_css
 open Css_types
 
 let rec zip xs ys =

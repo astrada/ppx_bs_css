@@ -1,4 +1,3 @@
-open Ppx_bs_css
 open Css_types
 
 let rec dump_component_value ppf (cv, _) =
