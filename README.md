@@ -165,7 +165,7 @@ See also:
     # to build tests
     esy dune build test/test_suite.exe
     # to run tests
-    esy ./_esy/default/build/default/test/test_suite.exe
+    esy _build/default/test/test_suite.exe
     # to build test_bs
     cd test_bs && yarn install
     # to run test_bs
