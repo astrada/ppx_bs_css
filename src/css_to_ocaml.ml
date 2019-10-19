@@ -83,7 +83,17 @@ let is_variant mode ident =
       | "end"
       (* display *)
       | "flex"
-      | "inline-flex" -> true
+      | "inline-flex"
+      (* font-weight *)
+      | "thin"
+      | "extra-light"
+      | "light"
+      | "medium"
+      | "semi-bold"
+      | "bold"
+      | "extra-bold"
+      | "lighter"
+      | "bolder" -> true
       | _ -> false
     end
   | Bs_typed_css -> false
@@ -319,7 +329,7 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
             | ([(_, start_loc) as color_cv;
                 (Number ("0" as perc), end_loc)], _) ->
               let color_expr = rcv color_cv in
-              let perc_expr = Exp.constant ~loc:end_loc (number_to_const perc) in
+              let perc_expr = rcv (Percentage perc, end_loc) in
               let loc =
                 Lex_buffer.make_loc start_loc.Location.loc_start end_loc.Location.loc_end in
               Exp.tuple ~loc [perc_expr; color_expr]
@@ -330,6 +340,16 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
       in
       let end_loc =
         Lex_buffer.make_loc ~loc_ghost:true loc.Location.loc_end loc.Location.loc_end in
+      let render_params params =
+        params
+        |> List.filter
+          (function (Delim ",", _) -> false | _ -> true)
+        |> List.map
+          (function
+            | (Number "0", loc) ->
+              Exp.constant ~loc (Const.int 0)
+            | c -> rcv c)
+      in
       match name with
       | "linear-gradient"
       | "repeating-linear-gradient" ->
@@ -369,15 +389,46 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
         let color_stops = color_stops_to_expr_list grouped_params in
         let color_stop_expr = list_to_expr end_loc color_stops in
         [color_stop_expr]
+      | "hsl" ->
+        let ps = params
+          |> List.filter
+            (function (Delim ",", _) -> false | _ -> true)
+        in
+        begin match ps with
+        | [(Number n, l1); (Percentage p1, l2); (Percentage p2, l3)]
+        | [(Float_dimension (n, "deg", Angle), l1); (Percentage p1, l2); (Percentage p2, l3)] ->
+          [rcv (Float_dimension (n, "deg", Angle), l1);
+           Exp.constant ~loc:l2 (float_to_const p1);
+           Exp.constant ~loc:l3 (float_to_const p2);
+          ]
+        | _ ->
+          grammar_error params_loc "Unexpected parameters (hsl)"
+        end
+      | "hsla" ->
+        let ps = params
+          |> List.filter
+            (function (Delim ",", _) -> false | _ -> true)
+        in
+        begin match ps with
+        | [(Number n, l1); (Percentage p1, l2); (Percentage p2, l3); (Number p3, l4)]
+        | [(Float_dimension (n, "deg", Angle), l1); (Percentage p1, l2); (Percentage p2, l3); (Number p3, l4)] ->
+          [rcv (Float_dimension (n, "deg", Angle), l1);
+           Exp.constant ~loc:l2 (float_to_const p1);
+           Exp.constant ~loc:l3 (float_to_const p2);
+           Exp.variant ~loc:l4 "num" (Some (Exp.constant ~loc:l4 (float_to_const p3)));
+          ]
+        | [(Number n, l1); (Percentage p1, l2); (Percentage p2, l3); (Percentage p3, l4)]
+        | [(Float_dimension (n, "deg", Angle), l1); (Percentage p1, l2); (Percentage p2, l3); (Percentage p3, l4)] ->
+          [rcv (Float_dimension (n, "deg", Angle), l1);
+           Exp.constant ~loc:l2 (float_to_const p1);
+           Exp.constant ~loc:l3 (float_to_const p2);
+           Exp.variant ~loc:l4 "perc" (Some (Exp.constant ~loc:l4 (float_to_const p3)));
+          ]
+        | _ ->
+          grammar_error params_loc "Unexpected parameters (hsla)"
+        end
       | _ ->
-        params
-        |> List.filter
-          (function (Delim ",", _) -> false | _ -> true)
-        |> List.map
-          (function
-            | (Number "0", loc) ->
-              Exp.constant ~loc (Const.int 0)
-            | c -> rcv c)
+        render_params params
     in
     Exp.apply ~loc ident (List.map (fun a -> (Nolabel, a)) args)
   in
@@ -426,8 +477,8 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
       if dimension = "px" then
         (* Pixels are treated as integers by both libraries *)
         Const.integer number
-      else if mode = Bs_css && (dimension = "deg" || dimension = "pt") then
-        (* bs-css uses int degrees and points *)
+      else if mode = Bs_css && dimension = "pt" then
+        (* bs-css uses int points *)
         Const.integer number
       else if mode = Bs_typed_css && dimension = "ms" then
         (* bs-typed-css uses int milliseconds *)
@@ -495,7 +546,7 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
   (* https://developer.mozilla.org/en-US/docs/Web/CSS/animation *)
   let render_animation () =
     let animation_ident =
-      Exp.ident ~loc:name_loc { txt = Lident "animation"; loc = name_loc } in
+      Exp.ident ~loc:name_loc { txt = Ldot (Lident "Animation", "shorthand"); loc = name_loc } in
     let animation_args (grouped_param, _) =
       List.fold_left
         (fun args ((v, loc) as cv) ->
@@ -560,9 +611,11 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
         (Nolabel, rcv cv) :: args
       else grammar_error loc "Unexpected box-shadow value"
     in
-    let n = if mode = Bs_css then "boxShadow" else "shadow" in
+    let txt =
+      if mode = Bs_css then (Longident.Ldot (Longident.Lident "Shadow", "box"))
+      else (Longident.Lident "shadow") in
     let box_shadow_ident =
-      Exp.ident ~loc:name_loc { txt = Lident n; loc = name_loc } in
+      Exp.ident ~loc:name_loc { txt; loc = name_loc } in
     let box_shadow_args (grouped_param, _) =
       List.fold_left
         box_shadow_args
@@ -585,39 +638,50 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
 
   (* https://developer.mozilla.org/en-US/docs/Web/CSS/text-shadow *)
   let render_text_shadow () =
-    let text_shadow_args params _ =
-      List.fold_left
-        (fun args ((v, loc) as cv) ->
-           if is_ident "inset" v then
-             (Labelled "inset",
-              (Exp.construct ~loc
-                 { txt = Lident "true"; loc }
-                 None)) :: args
-           else if is_length v then
-             if not (List.exists (function (Labelled "x", _) -> true | _ -> false) args) then
-               (Labelled "x", rcv cv) :: args
-             else if not (List.exists (function (Labelled "y", _) -> true | _ -> false) args) then
-               (Labelled "y", rcv cv) :: args
-             else if not (List.exists (function (Labelled "blur", _) -> true | _ -> false) args) then
-               (Labelled "blur", rcv cv) :: args
-             else grammar_error loc "box-shadow cannot have more than 3 length values"
-           else if is_color v then
-             (Nolabel, rcv cv) :: args
-           else grammar_error loc "Unexpected box-shadow value"
-        )
-        []
-        params
+    let text_shadow_args args ((v, loc) as cv) =
+      if is_ident "inset" v then
+        (Labelled "inset",
+        (Exp.construct ~loc
+           { txt = Lident "true"; loc }
+           None)) :: args
+      else if is_length v then
+        if not (List.exists (function (Labelled "x", _) -> true | _ -> false) args) then
+          (Labelled "x", rcv cv) :: args
+      else if not (List.exists (function (Labelled "y", _) -> true | _ -> false) args) then
+        (Labelled "y", rcv cv) :: args
+        else if not (List.exists (function (Labelled "blur", _) -> true | _ -> false) args) then
+          (Labelled "blur", rcv cv) :: args
+      else grammar_error loc "box-shadow cannot have more than 3 length values"
+        else if is_color v then
+          (Nolabel, rcv cv) :: args
+      else grammar_error loc "Unexpected box-shadow value"
     in
-    let (params, loc) = d.Declaration.value in
-    let args = text_shadow_args params loc in
-    let ident = Exp.ident ~loc:name_loc { txt = Lident "textShadow"; loc = name_loc } in
-    Exp.apply ident args
+    let text_shadow_ident =
+      Exp.ident ~loc:name_loc { txt = Ldot (Lident "Shadow", "text"); loc = name_loc } in
+    let text_shadow_args (grouped_param, _) =
+      List.fold_left
+        text_shadow_args
+        []
+        grouped_param
+    in
+    let (params, _) = d.Declaration.value in
+    let grouped_params = group_params params in
+    let args =
+      List.rev_map
+        (fun params -> text_shadow_args params)
+        grouped_params in
+    let ident = Exp.ident ~loc:name_loc { txt = Lident "textShadows"; loc = name_loc } in
+    let text_shadow_list =
+      List.map
+        (fun arg -> Exp.apply text_shadow_ident arg)
+        args in
+    Exp.apply ident [(Nolabel, list_to_expr name_loc text_shadow_list)]
   in
 
   (* https://developer.mozilla.org/en-US/docs/Web/CSS/transition *)
   let render_transition () =
     let transition_ident =
-      Exp.ident ~loc:name_loc { txt = Lident "transition"; loc = name_loc } in
+      Exp.ident ~loc:name_loc { txt = Ldot (Lident "Transition", "shorthand"); loc = name_loc } in
     let render_property property loc =
       Exp.constant ~loc (Const.string property)
     in
@@ -763,7 +827,7 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
         let (v, loc) = List.hd vs in
         match v with
         | Number n ->
-          Exp.constant ~loc (number_to_const n)
+          Exp.constant ~loc (float_to_const n)
         | _ ->
           grammar_error loc ("Unexpected " ^ name ^ " value")
       else
@@ -771,6 +835,25 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
     in
     let ident =
       Exp.ident ~loc:name_loc { txt = Lident name; loc = name_loc } in
+    Exp.apply ~loc:name_loc ident [(Nolabel, arg)]
+  in
+
+  let render_font_weight () =
+    let (vs, loc) = d.Declaration.value in
+    let arg =
+      if List.length vs = 1 then
+        let ((v, loc) as c) = List.hd vs in
+        match v with
+        | Ident _ -> rcv c
+        | Number _ ->
+          Exp.variant ~loc "num" (Some (rcv c))
+        | _ ->
+          grammar_error loc "Unexpected font-weight value"
+      else
+        grammar_error loc "font-weight should have a single value"
+    in
+    let ident =
+      Exp.ident ~loc:name_loc { txt = Lident "fontWeight"; loc = name_loc } in
     Exp.apply ~loc:name_loc ident [(Nolabel, arg)]
   in
 
@@ -845,6 +928,8 @@ and render_declaration mode (d: Declaration.t) (d_loc: Location.t) : expression 
   | "flex-grow"
   | "flex-shrink" when mode = Bs_css ->
     render_flex_grow_shrink ()
+  | "font-weight" when mode = Bs_css ->
+    render_font_weight ()
   | "padding"
   | "margin" ->
     render_with_labels [

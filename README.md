@@ -171,3 +171,8 @@ See also:
     # to run test_bs
     yarn build
 
+### Supported versions
+
+* `ppx_bs_css` version 0.1.0 supports `bs-css` v7
+* `ppx_bs_css` version 0.2.0 supports `bs-css` v10
+
