@@ -163,7 +163,7 @@ See also:
     esy install
     esy build
     # to build tests
-    esy dune build test/test_suite.exe
+    esy build dune build test/test_suite.exe
     # to run tests
     esy _build/default/test/test_suite.exe
     # to build test_bs
