@@ -11,8 +11,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "bs-css": "7.1.0",
-    "bs-platform": "^4.0.5",
+    "bs-css": "10.0.1",
+    "bs-platform": "^5.0.6",
     "bs-typed-glamor": "https://github.com/glennsl/bs-typed-glamor"
   }
 }
