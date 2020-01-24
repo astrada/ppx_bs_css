@@ -7,24 +7,24 @@ jobs:
   - template: .ci/release/pipeline.yml
     parameters:
       name: "macOS"
-      vmImage: "macOS-10.13"
+      vmImage: "macOS-latest"
       platform: "macOS"
 
   - template: .ci/release/pipeline.yml
     parameters:
       name: "Linux"
-      vmImage: "ubuntu-16.04"
+      vmImage: "ubuntu-latest"
       platform: "Linux"
 
   - template: .ci/release/pipeline.yml
     parameters:
       name: "Windows"
-      vmImage: "vs2017-win2016"
+      vmImage: "windows-latest"
       platform: "Windows"
 
   - job: Release
     pool:
-      vmImage: ubuntu-16.04
+      vmImage: "ubuntu-latest"
     dependsOn:
       - macOS
       - Linux
@@ -32,10 +32,10 @@ jobs:
     steps:
       - template: .ci/release/bundle.yml
       - task: Npm@1
-        displayName: 'npm publish'
+        displayName: "npm publish"
         inputs:
           command: custom
-          workingDir: '_release'
+          workingDir: "_release"
           verbose: false
-          customCommand: 'publish'
-          customEndpoint: 'npm-publish-package'
+          customCommand: "publish"
+          customEndpoint: "npm-publish-package"
