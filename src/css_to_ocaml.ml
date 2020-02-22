@@ -1,5 +1,5 @@
 open Migrate_parsetree
-open Ast_406
+open Ast_410
 open Ast_helper
 open Asttypes
 open Parsetree
@@ -111,7 +111,7 @@ let to_caml_case s =
   let splitted = split '-' s in
   List.fold_left
     (fun s part ->
-       s ^ (if s <> "" then String.capitalize part else part))
+       s ^ (if s <> "" then String.capitalize_ascii part else part))
     ""
     splitted
 

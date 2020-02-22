@@ -12,7 +12,7 @@
   "license": "ISC",
   "dependencies": {
     "bs-css": "10.0.1",
-    "bs-platform": "^5.0.6",
+    "bs-platform": "^7.1.0",
     "bs-typed-glamor": "https://github.com/glennsl/bs-typed-glamor"
   }
 }

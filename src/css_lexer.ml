@@ -65,16 +65,16 @@ let () =
     function
     | LexingError (pos, msg) ->
       let loc = Lex_buffer.make_loc_and_fix pos pos in
-      Some { loc; msg; sub = []; if_highlight = "" }
+      Some (Location.error ~loc msg)
     | ParseError (token, start_pos, end_pos) ->
       let loc = Lex_buffer.make_loc_and_fix start_pos end_pos in
       let msg =
         Printf.sprintf "Parse error while reading token '%s'"
           (token_to_string token)
       in
-      Some { loc; msg; sub = []; if_highlight = "" }
+      Some (Location.error ~loc msg)
     | GrammarError (msg, loc) ->
-      Some { loc; msg; sub = []; if_highlight = "" }
+      Some (Location.error ~loc msg)
     | _ -> None )
 
 (* Regexes *)

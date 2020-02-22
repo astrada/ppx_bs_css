@@ -1,5 +1,5 @@
 open Migrate_parsetree
-open Ast_406
+open Ast_410
 open Ast_mapper
 open Asttypes
 open Parsetree
@@ -8,7 +8,8 @@ let expr mapper e =
   match e.pexp_desc with
   | Pexp_extension
       ({ txt; loc; _ },
-       PStr [{ pstr_desc = Pstr_eval (e, _); _ }]) when txt = "style" || txt = "css" ->
+       PStr [{ pstr_desc = Pstr_eval (e, _); _ }]) when txt = "style" ||
+                                                        txt = "css" ->
     begin match e.pexp_desc with
       | Pexp_constant Pconst_string (str, delim) ->
         let loc_start =
@@ -17,7 +18,8 @@ let expr mapper e =
           | Some s ->
             { e.pexp_loc.Location.loc_start with
               Lexing.pos_cnum =
-                e.pexp_loc.Location.loc_start.Lexing.pos_cnum + (String.length s) + 1
+                e.pexp_loc.Location.loc_start.Lexing.pos_cnum +
+                (String.length s) + 1
             }
         in
         let container_lnum = loc_start.Lexing.pos_lnum in
@@ -68,4 +70,3 @@ let expr mapper e =
 
 let mapper _ _ = { default_mapper with expr }
 
-let () = Driver.register ~name:"css" Versions.ocaml_406 mapper

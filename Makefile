@@ -1,20 +1,14 @@
-.PHONY: build clean test doc
+.PHONY: build test test_bs
 
 build:
-	dune build @install
+	esy build
 
 test:
-	dune runtest
+	esy build dune build test/test_suite.exe
+	esy _build/default/test/test_suite.exe
 
-install:
-	dune install
-
-uninstall:
-	dune uninstall
-
-clean:
-	dune clean
-
-doc:
-	dune build @doc
+test_bs:
+	cd test_bs
+	yarn build
+	cd ..
 
