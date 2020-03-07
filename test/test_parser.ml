@@ -735,6 +735,13 @@ let test_class_selector () =
   Alcotest.(check (testable Css_fmt_printer.dump_stylesheet eq_ast))
     "different CSS AST" expected_ast ast
 
+let test_empty_stylesheet () =
+  let css = {||} in
+  let ast = parse_stylesheet css in
+  let expected_ast = ([], Location.none) in
+  Alcotest.(check (testable Css_fmt_printer.dump_stylesheet eq_ast))
+    "different CSS AST" expected_ast ast
+
 let test_set =
   [("CSS parser", `Quick, test_stylesheet_parser);
    ("CSS functions", `Quick, test_css_functions);
@@ -753,4 +760,5 @@ let test_set =
    (":hover selector", `Quick, test_hover_selector);
    ("id selector", `Quick, test_id_selector);
    ("class selector", `Quick, test_class_selector);
+   ("empty stylesheet", `Quick, test_empty_stylesheet);
   ]
