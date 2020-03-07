@@ -8,6 +8,7 @@ let rec zip xs ys =
 
 let eq_ast ast1 ast2 =
   let eq_list xs ys eq =
+    List.length xs = List.length ys &&
     List.fold_left
       (fun e (x, y) -> e && eq x y)
       true
