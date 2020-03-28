@@ -112,8 +112,8 @@ let string = [%sedlex.regexp? string_quote | string_apos]
 
 let name = [%sedlex.regexp? Plus ident_char]
 
-let number = [%sedlex.regexp? (Opt ('+', '-'), Plus digit, Opt ('.', Plus digit), Opt (('e' | 'E'), ('+' | '-'), Plus digit))
-                          | (Opt ('+', '-'), '.', Plus digit, Opt (('e' | 'E'), ('+' | '-'), Plus digit))]
+let number = [%sedlex.regexp? (Opt ('-'), Plus digit, Opt ('.', Plus digit), Opt (('e' | 'E'), ('+' | '-'), Plus digit))
+                          | (Opt ('-'), '.', Plus digit, Opt (('e' | 'E'), ('+' | '-'), Plus digit))]
 
 let non_printable = [%sedlex.regexp? '\x00'..'\x08' | '\x0B' | '\x0E'..'\x1F' | '\x7F']
 
