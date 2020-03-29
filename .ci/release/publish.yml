@@ -2,5 +2,5 @@ steps:
   - task: PublishBuildArtifacts@1
     displayName: "Publish ${{ parameters.platform }}"
     inputs:
-      pathToPublish: "_build/default/bin/bin.exe"
+      pathToPublish: "_esy/default/build/default/bin/bin.exe"
       artifactName: "${{ parameters.platform }}"
