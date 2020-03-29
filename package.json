@@ -4,7 +4,8 @@
   "description": "CSS syntax extension for BuckleScript/ReasonML",
   "license": "MIT",
   "esy": {
-    "build": "dune build -p #{self.name}"
+    "build": "dune build -p #{self.name}",
+    "buildsInSource": "_build"
   },
   "dependencies": {
     "@opam/dune": "*",

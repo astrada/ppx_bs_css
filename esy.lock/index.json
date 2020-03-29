@@ -1,5 +1,5 @@
 {
-  "checksum": "d9f90fe17f25db82c6ca70dd211f3e09",
+  "checksum": "15989613bc81428d6ed43880da8abcc4",
   "root": "ppx_bs_css@link-dev:./package.json",
   "node": {
     "ppx_bs_css@link-dev:./package.json": {
@@ -14,7 +14,7 @@
       "overrides": [],
       "dependencies": [
         "ocaml@4.9.0@d41d8cd9",
-        "css-parser@github:astrada/ocaml-css-parser#b88e40f@d41d8cd9",
+        "css-parser@github:astrada/ocaml-css-parser#0900409@d41d8cd9",
         "@opam/ocaml-migrate-parsetree@opam:1.6.0@da2643e7",
         "@opam/dune@opam:2.4.0@639d28a3",
         "@opam/alcotest@opam:1.0.1@412cd081"
@@ -37,13 +37,13 @@
       "dependencies": [],
       "devDependencies": []
     },
-    "css-parser@github:astrada/ocaml-css-parser#b88e40f@d41d8cd9": {
-      "id": "css-parser@github:astrada/ocaml-css-parser#b88e40f@d41d8cd9",
+    "css-parser@github:astrada/ocaml-css-parser#0900409@d41d8cd9": {
+      "id": "css-parser@github:astrada/ocaml-css-parser#0900409@d41d8cd9",
       "name": "css-parser",
-      "version": "github:astrada/ocaml-css-parser#b88e40f",
+      "version": "github:astrada/ocaml-css-parser#0900409",
       "source": {
         "type": "install",
-        "source": [ "github:astrada/ocaml-css-parser#b88e40f" ]
+        "source": [ "github:astrada/ocaml-css-parser#0900409" ]
       },
       "overrides": [],
       "dependencies": [
