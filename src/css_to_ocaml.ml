@@ -3,14 +3,14 @@ open Ast_410
 open Ast_helper
 open Asttypes
 open Parsetree
-open Css_types
+open Css.Types
 
 type mode =
   | Bs_css
   | Bs_typed_css
 
 let grammar_error loc message =
-  raise (Css_lexer.GrammarError (message, loc))
+  raise (Css.Lexer.GrammarError (message, loc))
 
 let is_overloaded mode declaration =
   (* Overloaded declarations are rendered as function applications where function name
@@ -132,7 +132,7 @@ let list_to_expr end_loc xs =
   List.fold_left
     (fun e param ->
        let loc =
-         Lex_buffer.make_loc
+         Css.Lex_buffer.make_loc
            ~loc_ghost:true e.pexp_loc.Location.loc_start end_loc.Location.loc_end in
        Exp.construct ~loc
          { txt = Lident "::"; loc }
@@ -153,7 +153,7 @@ let group_params params =
         let loc_start =
           if loc = Location.none then cv_loc.Location.loc_start
           else loc.Location.loc_start in
-        Lex_buffer.make_loc loc_start cv_loc.Location.loc_end in
+        Css.Lex_buffer.make_loc loc_start cv_loc.Location.loc_end in
       group_param (accu @ [hd], loc) rest
   in
   let rec group_params accu xs =
@@ -331,7 +331,7 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
               let color_expr = rcv color_cv in
               let perc_expr = rcv (Percentage perc, end_loc) in
               let loc =
-                Lex_buffer.make_loc start_loc.Location.loc_start end_loc.Location.loc_end in
+                Css.Lex_buffer.make_loc start_loc.Location.loc_start end_loc.Location.loc_end in
               Exp.tuple ~loc [perc_expr; color_expr]
             | (_, loc) ->
               grammar_error loc "Unexpected color stop"
@@ -339,7 +339,7 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
           color_stop_params
       in
       let end_loc =
-        Lex_buffer.make_loc ~loc_ghost:true loc.Location.loc_end loc.Location.loc_end in
+        Css.Lex_buffer.make_loc ~loc_ghost:true loc.Location.loc_end loc.Location.loc_end in
       let render_params params =
         params
         |> List.filter
@@ -371,7 +371,7 @@ let rec render_component_value mode ((cv, loc): Component_value.t with_loc) : ex
             side_or_corner_expr "270" loc, List.tl grouped_params
           | ((Ident _, _) :: _, _) ->
             let implicit_side_or_corner_loc =
-              Lex_buffer.make_loc ~loc_ghost:true
+              Css.Lex_buffer.make_loc ~loc_ghost:true
                 params_loc.Location.loc_start
                 params_loc.Location.loc_start in
             rcv
@@ -497,7 +497,7 @@ and render_at_rule mode (ar: At_rule.t) : expression =
     begin match ar.At_rule.block with
       | Brace_block.Stylesheet (rs, loc) ->
         let end_loc =
-          Lex_buffer.make_loc ~loc_ghost:true loc.Location.loc_end loc.Location.loc_end in
+          Css.Lex_buffer.make_loc ~loc_ghost:true loc.Location.loc_end loc.Location.loc_end in
         let arg =
           List.fold_left
             (fun e r ->
@@ -520,7 +520,7 @@ and render_at_rule mode (ar: At_rule.t) : expression =
                  let tuple =
                    Exp.tuple ~loc:sr.Style_rule.loc [progress_expr; block_expr] in
                  let loc =
-                   Lex_buffer.make_loc
+                   Css.Lex_buffer.make_loc
                      ~loc_ghost:true sr.Style_rule.loc.Location.loc_start loc.Location.loc_end in
                  Exp.construct ~loc
                    { txt = Lident "::"; loc }

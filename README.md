@@ -160,12 +160,7 @@ See also:
 ### Development
 
     npm install -g esy
-    esy install
-    esy build
-    # to build tests
-    esy build dune build test/test_suite.exe
-    # to run tests
-    esy _build/default/test/test_suite.exe
+    esy
     # to build test_bs
     cd test_bs && yarn install
     # to run test_bs

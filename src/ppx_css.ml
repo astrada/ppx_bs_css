@@ -40,19 +40,17 @@ let expr mapper e =
         begin match txt with
           | "style" ->
             let ast =
-              Css_lexer.parse_string
+              Css.Parser.parse_declaration_list
                 ~container_lnum
                 ~pos
-                str
-                Css_parser.declaration_list in
+                str in
             Css_to_ocaml.render_declaration_list mode ast
           | "css" -> 
             let ast =
-              Css_lexer.parse_string
+              Css.Parser.parse_stylesheet
                 ~container_lnum
                 ~pos
-                str
-                Css_parser.stylesheet in
+                str in
             Css_to_ocaml.render_stylesheet mode ast
           | _ -> assert false
         end

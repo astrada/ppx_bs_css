@@ -1,14 +1,8 @@
-.PHONY: build test test_bs
+.PHONY: build test
 
 build:
-	esy build
+	esy
 
 test:
-	esy build dune build test/test_suite.exe
-	esy _build/default/test/test_suite.exe
-
-test_bs:
-	cd test_bs
-	yarn build
-	cd ..
+	cd test_bs && yarn build && cd ..
 

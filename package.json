@@ -1,24 +1,23 @@
 {
   "name": "ppx_bs_css",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "CSS syntax extension for BuckleScript/ReasonML",
   "license": "MIT",
   "esy": {
-    "build": "dune build -p #{self.name}",
-    "buildsInSource": "_build"
+    "build": "dune build -p #{self.name}"
   },
   "dependencies": {
     "@opam/dune": "*",
     "@opam/alcotest": "^1.0.1",
-    "@opam/menhir": "20200211",
     "@opam/ocaml-migrate-parsetree": "^1.6.0",
-    "@opam/sedlex": "^2.0.0",
-    "@opam/gen": "*",
-    "@opam/ppx_tools_versioned": "*",
+    "css-parser": "*",
     "ocaml": "~4.9.0"
   },
   "devDependencies": {
-    "@opam/merlin": "^3.3.3",
+    "@opam/merlin": "3.3.3",
     "ocaml": "~4.9.0"
+  },
+  "resolutions": {
+    "css-parser": "astrada/ocaml-css-parser#b88e40f"
   }
 }
