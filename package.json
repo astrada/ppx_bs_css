@@ -1,6 +1,6 @@
 {
   "name": "ppx_bs_css",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "CSS syntax extension for BuckleScript/ReasonML",
   "license": "MIT",
   "esy": {
@@ -18,6 +18,6 @@
     "ocaml": "~4.9.0"
   },
   "resolutions": {
-    "css-parser": "astrada/ocaml-css-parser#b88e40f"
+    "css-parser": "astrada/ocaml-css-parser#0900409"
   }
 }
