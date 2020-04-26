@@ -11,14 +11,11 @@
     "@opam/dune": "*",
     "@opam/alcotest": "^1.0.1",
     "@opam/ocaml-migrate-parsetree": "^1.6.0",
-    "css-parser": "*",
+    "@opam/css-parser": "^0.2.2",
     "ocaml": "~4.9.0"
   },
   "devDependencies": {
     "@opam/merlin": "3.3.3",
     "ocaml": "~4.9.0"
-  },
-  "resolutions": {
-    "css-parser": "astrada/ocaml-css-parser#0900409"
   }
 }
