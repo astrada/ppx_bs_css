@@ -991,6 +991,7 @@ and render_style_rule mode (sr: Style_rule.t) : expression =
       (fun s (value, value_loc) ->
          match value with
          | Component_value.Delim ":" -> ":" ^ s
+         | Delim "." -> "." ^ s
          | Ident v
          | Operator v
          | Delim v -> if String.length s > 0 then v ^ " " ^ s else v ^ s

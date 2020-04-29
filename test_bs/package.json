@@ -4,9 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "bsb -clean-world -make-world -w",
     "build": "bsb -clean-world -make-world",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "bsb -clean-world -make-world; for i in lib/js/issues/*.js; do node $i; done"
   },
   "author": "",
   "license": "ISC",
